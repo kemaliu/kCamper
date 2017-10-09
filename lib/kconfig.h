@@ -10,5 +10,4 @@
 #include "lib.h"
 
 
-#define F_CPU   8000000  //8M clock
 #define printf  uart_print
