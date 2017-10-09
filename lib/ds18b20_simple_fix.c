@@ -32,8 +32,6 @@ void ds_init()
     ds_pin_output_high(0);
     ds_pin_output_high(2);
     ds_pin_output_high(4);
-    printf("DDRC %x PORTC %x PINC %x\n", DDRC, PORTC, PINC);
-    
 }
 
 
@@ -47,16 +45,20 @@ INT8 ds_reset(char index)
     _delay_us(600);
     ds_pin_input(index);
     _delay_us(15);
+        /* wait for response */
     while(cnt++ < 500){
         if(ds_pin_input(index) == 0){
             ok_cnt++;
         }
+        if(ok_cnt > 10){
+            ds_pin_output_high(index);
+            return 0;
+        }
         _delay_us(1);
     }
-    if(ok_cnt > 10)
-        return 0;
-    else
-        return -1;
+    ds_pin_output_high(index);
+    return -1;
+    
 }
 
 
@@ -100,7 +102,7 @@ UINT8 ds_read_bit(char index)
     ds_pin_input(index);        /* set pull up input mode */
     _delay_us(5);              /* wait 10us */
         /* do sample */
-    ret = ds_pin_input(index);  
+    ret = ds_pin_input(index);
     _delay_us(60);
     ds_pin_output_high(index);
     sei();			/* 开中断 */
@@ -131,15 +133,23 @@ INT16 ds_get_temperature_x16(char index)
     INT8 ret;
     ret = ds_reset(index);
     if(ret < 0){
+        printf("18b20 dev%d reset failed\n", index);
         return -1001;
     }
     //跳过ROM，不读地址，直接通讯
     ds_write_byte(index, 0xcc);
     //开始转换
     ds_write_byte(index, 0x44);
+    
     ds_pin_input(index);
+#if 1
+        /* parasite power mode: output high instead of check QD for converting status*/
+    ds_pin_output_high(index);
+    _delay_ms(2000);
+#else
+        /* VCC power supply, can check QD for converting status */
     /*温度采集时，读回的是0, 1表示采集结束*/
-    while(wait_cnt++ < 1500){	/* 超时20Kx60us = 1200ms = 1.2s */
+    while(wait_cnt++ < 1500){	/* 超时1.5s */
         _delay_ms(1);
         if(ds_read_bit(index) == 1)
             break;
@@ -147,6 +157,7 @@ INT16 ds_get_temperature_x16(char index)
     if(wait_cnt >= 1500){
         return -1000;		/* -1000表示读取失败 */
     }
+#endif
         /* start read */
     ds_reset(index);
     //跳过ROM，不读地址，直接通讯
