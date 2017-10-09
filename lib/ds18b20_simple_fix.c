@@ -3,6 +3,7 @@
 #include "ktype.h"
 #include "gpio.h"
 #include "kconfig.h"
+#include "ds18b20_simple_fix.h"
 #include <util/delay.h>
 #include <avr/interrupt.h>
 
@@ -25,13 +26,9 @@ static inline void ds_pin_output(char index)
 
 void ds_init()
 {
-        /* output GND in PC1/3/5 */
-    gpio_output(GPIO_GROUP_C, 1, 0);
-    gpio_output(GPIO_GROUP_C, 3, 0);
-    gpio_output(GPIO_GROUP_C, 5, 0);
-    ds_pin_output_high(0);
-    ds_pin_output_high(2);
-    ds_pin_output_high(4);
+    ds_pin_output_high(TEMPERATURE_SENSOR_TANK1);
+    ds_pin_output_high(TEMPERATURE_SENSOR_TANK2);
+    ds_pin_output_high(TEMPERATURE_SENSOR_HEATER);
 }
 
 
@@ -50,15 +47,15 @@ INT8 ds_reset(char index)
         if(ds_pin_input(index) == 0){
             ok_cnt++;
         }
-        if(ok_cnt > 10){
-            ds_pin_output_high(index);
-            return 0;
-        }
+        
         _delay_us(1);
     }
     ds_pin_output_high(index);
-    return -1;
-    
+    if(ok_cnt > 10){
+        return 0;
+    }else{
+        return -1;
+    }
 }
 
 
@@ -133,7 +130,6 @@ INT16 ds_get_temperature_x16(char index)
     INT8 ret;
     ret = ds_reset(index);
     if(ret < 0){
-        printf("18b20 dev%d reset failed\n", index);
         return -1001;
     }
     //跳过ROM，不读地址，直接通讯
@@ -166,6 +162,9 @@ INT16 ds_get_temperature_x16(char index)
     ds_write_byte(index, 0xbe);
     low = ds_read_byte(index);
     high = ds_read_byte(index);
+
+        /* now get temperature, powerdown chip */
+    ds_pin_output_low(index);
     temperature = (INT16)((UINT16)low|((UINT16)high << 8));
     return temperature;
 }
