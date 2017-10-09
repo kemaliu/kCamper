@@ -1,0 +1,10 @@
+*.o
+*~
+*.out
+cscope.*
+*.srec
+*.bin
+*.hex
+*.elf
+*.lst
+*.map
