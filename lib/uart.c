@@ -5,7 +5,6 @@
 #include <stdio.h>
 
 #include <avr/interrupt.h>
-#include <avr/signal.h>
 #include "uart.h"
 #include "debug.h"
 #include "pwm.h"
@@ -208,7 +207,7 @@ void init_uart(uint16 baud)
 
 
 static char printbuffer[64];
-void uart_print( const char * fmt, ... )
+int uart_print( const char * fmt, ... )
 {
     va_list args;
     int n;
@@ -216,6 +215,7 @@ void uart_print( const char * fmt, ... )
     n = vsprintf ( printbuffer, fmt, args );
     va_end ( args );
     put_s(printbuffer);
+    return n;
 }
 
 

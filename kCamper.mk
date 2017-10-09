@@ -1,4 +1,4 @@
-GEN_OBJ         = kCamper.o lib/uart.o  lib/ds18b20_simple_fix.o lib/gpio.o lib/env_test.o
+GEN_OBJ         = kCamper.o lib/uart.o  lib/ds18b20_simple_fix.o lib/gpio.o #lib/env_test.o
 
 CPU_FREQ = 8000000
 PRG            = kCamper

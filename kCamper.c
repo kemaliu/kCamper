@@ -38,10 +38,10 @@
  * 
  * 
  * pinmux desc:
- *              DATA  GND
- *   temp_cold: PC0  PC1
- *   temp_hot:  PC2  PC3
- *   temp_tank2:PC4  PC5
+ *               QD
+ *   temp_tank1: PC0
+ *   temp_tank2: PC1
+ *   temp_heater:PC2
  * 
  *   switch_tank2&pumb_tank2:  PD2
  *   switchB:PD3
@@ -55,6 +55,7 @@
 #include "lib/uart.h"
 #include "lib/ds18b20.h"
 #include "lib/kconfig.h"
+#include "lib/ds18b20_simple_fix.h"
 #include <util/delay.h>
 #include <avr/interrupt.h>
 int main()
@@ -63,16 +64,35 @@ int main()
     short temp;
     int i;
         /* init uart */
-    init_uart(4800);
+    init_uart(2400);
         /* init temperature */
     ds_init();
     while(1){
         printf("--kCamper %d\n", cnt++);
-        temp = ds_get_temperature_x16(0);
-        if(temp == -1000)
+        temp = ds_get_temperature_x16((char)TEMPERATURE_SENSOR_TANK1);
+        put_s("TANK1 temperature:");
+        if(temp <= -1000)
             printf("read failed\n");
         else
-            printf("temperature %d\n", temp/16);
+            printf("%d\n", temp/16);
+        
+        temp = ds_get_temperature_x16(TEMPERATURE_SENSOR_TANK2);
+        put_s("TANK2 temperature:");
+        if(temp <= -1000)
+            printf("read failed\n");
+        else
+            printf("%d\n", temp/16);
+        
+        temp = ds_get_temperature_x16(TEMPERATURE_SENSOR_HEATER);
+        put_s("heater temperature:");
+        if(temp <= -1000)
+            printf("read failed\n");
+        else
+            printf("%d\n", temp/16);
+
+        
+        
+        
         for(i=0; i<10000; i++)
             _delay_us(100);
     }

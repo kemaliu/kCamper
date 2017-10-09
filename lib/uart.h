@@ -10,5 +10,5 @@ void put_s(char * ptr);
 void put_c(char c);
 void put(unsigned char c);
 INT8 uart_poll_c(UINT8 * pC);
-void uart_print( const char * fmt, ... );
+int uart_print( const char * fmt, ... );
 #endif
