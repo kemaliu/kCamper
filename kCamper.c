@@ -1,6 +1,6 @@
 /*
  *
- *    加水口<----------<---switch_tank2<--pumb_tank2<--flow_tank2_out<--temp_tank2<--副水箱出口
+ *    加水口<----------<---switch_tank2<--pumb_tank2<--flow_tank2<--temp_tank2<--副水箱出口
  *                    ^
  *                    |
  *                    |                            
@@ -12,7 +12,7 @@
  *      ^
  *      +---------------------------------------------
  *                                                   ^
- *    冷水无压---------temp_cold--->pump_Cold---flow_tank1_out---->换热器
+ *    冷水无压---------temp_cold--->pump_Cold---flow_tank1---->换热器
  *              |                          |
  *              |                          |
  *              +-----原配水泵-------------->
@@ -62,7 +62,7 @@
 int main()
 {
     int cnt = 0;
-    short temp;
+    short temp[TEMPERATURE_SENSOR_MAX_NUM];
     int i;
         /* init uart */
     init_uart(19200);
@@ -71,37 +71,37 @@ int main()
         /* init flow ctrl */
     flow_init();
     while(1){
-      _delay_us(100);
+        _delay_us(100);
         printf("--kCamper %d\n", cnt++);
-	
-        temp = ds_get_temperature_x16((char)TEMPERATURE_SENSOR_TANK1);
-
-        put_s("TANK1 temperature:");
-        if(temp <= -1000)
-            printf("read failed\n");
+        temp[TEMPERATURE_SENSOR_TANK1] = ds_get_temperature_x16((char)TEMPERATURE_SENSOR_TANK1);
+        temp[TEMPERATURE_SENSOR_TANK2] = ds_get_temperature_x16((char)TEMPERATURE_SENSOR_TANK2);
+        temp[TEMPERATURE_SENSOR_HEATER] = ds_get_temperature_x16((char)TEMPERATURE_SENSOR_HEATER);
+#if 1
+            /* display info */
+        printf("status:\n");
+        put_s("  temperature:\n");
+        put_s("    TANK1:");
+        if(temp[TEMPERATURE_SENSOR_TANK1] <= -1000)
+            printf("NA\n");
         else
-            printf("%d\n", temp/16);
+            printf("%d\n", temp[TEMPERATURE_SENSOR_TANK1]/16);
 
+        put_s("    TANK2:");
+        if(temp[TEMPERATURE_SENSOR_TANK2] <= -1000)
+            printf("NA\n");
+        else
+            printf("%d\n", temp[TEMPERATURE_SENSOR_TANK2]/16);
         
-        temp = ds_get_temperature_x16(TEMPERATURE_SENSOR_TANK2);
-        put_s("TANK2 temperature:");
-        if(temp <= -1000)
-            printf("read failed\n");
+        put_s("    HEATER:");
+        if(temp[TEMPERATURE_SENSOR_HEATER] <= -1000)
+            printf("NA\n");
         else
-            printf("%d\n", temp/16);
-
-        temp = ds_get_temperature_x16(TEMPERATURE_SENSOR_HEATER);
-
-        put_s("heater temperature:");
-        if(temp <= -1000)
-            printf("read failed\n");
-        else
-            printf("%d\n", temp/16);
+            printf("%d\n", temp[TEMPERATURE_SENSOR_HEATER]/16);
         
-        printf("TANK1 flow %lu TANK2 flow %lu\n", flow_num(FLOW_TANK1_OUT), flow_num(FLOW_TANK2_OUT));
-        for(i=0; i<10000; i++)
-            _delay_us(100);
+        
+        printf("  flow: TANK1  %lu TANK2  %lu\n", flow_num(FLOW_TANK1_OUT), flow_num(FLOW_TANK2_OUT));
+#endif
+        
+        _delay_ms(1000);
     }
-    
-    
 }
