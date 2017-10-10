@@ -65,7 +65,7 @@ int main()
     short temp;
     int i;
         /* init uart */
-    init_uart(2400);
+    init_uart(19200);
         /* init temperature */
     ds_init();
         /* init flow ctrl */

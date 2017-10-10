@@ -47,3 +47,11 @@ UINT32 flow_num(FLOW_CTRL_T index)
         return 0;
     return __flow_cnt[index];
 }
+
+
+void flow_reset(FLOW_CTRL_T index)
+{
+    if(index > FLOW_TANK2_OUT || index < FLOW_TANK1_OUT)
+        return 0;
+    __flow_cnt[index] = 0;
+}

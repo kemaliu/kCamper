@@ -8,4 +8,6 @@ typedef enum{
 
 UINT32 flow_num(FLOW_CTRL_T index);
 
+
+void flow_reset(FLOW_CTRL_T index);
 #endif  /* #ifndef __FLOW_CTRL_H__ */
