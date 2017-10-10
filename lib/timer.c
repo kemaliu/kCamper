@@ -33,7 +33,7 @@ void timer_init()
 
     TCCR2A = 0 | 		/* OC2A/OC2B disconnected */
 	     0;			/* normal mode */
-    TCCR2B = 0x4; 		/* 16M div 64 = 250K*/ 
+    TCCR2B = 0x4; 		/* 8M div 64 = 125K*/ 
     TCNT2=0;                    /* orignal count = 0 */
     timer_enable_int (_BV (TOIE2));
     TIMSK2 = 0x1;
@@ -61,7 +61,7 @@ UINT32 time_diff_us(UINT32 last)
 {
     UINT32 now = timebase_get();
     now = (now - last);
-    now = now << 2;
+    now = now << 3;
     return now;
 }
 
@@ -69,13 +69,7 @@ UINT32 time_diff_ms(UINT32 last)
 {
     UINT32 now = timebase_get();
     now = (now - last);
-    now = (now << 2)/1000L;
+    now = (now << 3)/1000L;
     return now;
 }
 
-    /* while(1){ */
-    /* now = timebase_get(); */
-    /* _delay_ms(6600); */
-    /* now = time_diff_us(now); */
-    /* printf("delay 10ms cost %d.%.3dms\n", (UINT16)(now/1000), (UINT16)(now%1000)); */
-    /* } */
