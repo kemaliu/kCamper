@@ -1,6 +1,6 @@
 /*
  *
- *    加水口<----------<---switch_tank2<--pumb_tank2<--流量计A<--temp_tank2<--副水箱出口
+ *    加水口<----------<---switch_tank2<--pumb_tank2<--flow_tank2_out<--temp_tank2<--副水箱出口
  *                    ^
  *                    |
  *                    |                            
@@ -12,7 +12,7 @@
  *      ^
  *      +---------------------------------------------
  *                                                   ^
- *    冷水无压---------temp_cold--->pump_Cold---flow_cold---->换热器
+ *    冷水无压---------temp_cold--->pump_Cold---flow_tank1_out---->换热器
  *              |                          |
  *              |                          |
  *              +-----原配水泵-------------->
@@ -42,18 +42,19 @@
  *   temp_tank1: PC0
  *   temp_tank2: PC1
  *   temp_heater:PC2
- * 
+ *   flow_tank1_out:PC3(PCINT11)
+ *   flow_tank2_out:PC3(PCINT12)
  *   switch_tank2&pumb_tank2:  PD2
  *   switchB:PD3
  *   switch_tank1_loop:PD4
- *   flow_cold:PD5
- *   flow_bakTank:PD6
  */
 
 
 
 #include "lib/uart.h"
 #include "lib/ds18b20.h"
+#include "lib/timer.h"
+#include "lib/flow.h"
 #include "lib/kconfig.h"
 #include "lib/ds18b20_simple_fix.h"
 #include <util/delay.h>
@@ -67,14 +68,20 @@ int main()
     init_uart(2400);
         /* init temperature */
     ds_init();
+        /* init flow ctrl */
+    flow_init();
     while(1){
+      _delay_us(100);
         printf("--kCamper %d\n", cnt++);
+	
         temp = ds_get_temperature_x16((char)TEMPERATURE_SENSOR_TANK1);
+
         put_s("TANK1 temperature:");
         if(temp <= -1000)
             printf("read failed\n");
         else
             printf("%d\n", temp/16);
+
         
         temp = ds_get_temperature_x16(TEMPERATURE_SENSOR_TANK2);
         put_s("TANK2 temperature:");
@@ -82,17 +89,16 @@ int main()
             printf("read failed\n");
         else
             printf("%d\n", temp/16);
-        
+
         temp = ds_get_temperature_x16(TEMPERATURE_SENSOR_HEATER);
+
         put_s("heater temperature:");
         if(temp <= -1000)
             printf("read failed\n");
         else
             printf("%d\n", temp/16);
-
         
-        
-        
+        printf("TANK1 flow %lu TANK2 flow %lu\n", flow_num(FLOW_TANK1_OUT), flow_num(FLOW_TANK2_OUT));
         for(i=0; i<10000; i++)
             _delay_us(100);
     }
