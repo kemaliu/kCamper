@@ -1,4 +1,4 @@
-GEN_OBJ         = kCamper.o lib/uart.o  lib/ds18b20_simple_fix.o lib/gpio.o lib/flow.o #lib/timer.o #lib/env_test.o
+GEN_OBJ         = kCamper.o lib/uart.o  lib/ds18b20_simple_fix.o lib/gpio.o lib/flow.o lib/timer.o #lib/env_test.o
 
 CPU_FREQ = 8000000
 PRG            = kCamper
@@ -69,8 +69,8 @@ CC             = avr-gcc
 
 # Override is only needed by avr-lib build system.
 
-override CFLAGS        = -Wall $(OPTIMIZE) -mmcu=$(MCU_TARGET) $(DEFS) -IC:\WinAVR-20100110\avr\include -Ilib -DF_CPU=$(CPU_FREQ) $(EXTRA_CFLAGS)
-override LDFLAGS       = -Wl,-Map,$(PRG).map
+override CFLAGS        = -Wall $(OPTIMIZE) -mmcu=$(MCU_TARGET) $(DEFS) -IC:\WinAVR-20100110\avr\include -Ilib -DF_CPU=$(CPU_FREQ) $(EXTRA_CFLAGS) -Wl,-u,vfprint -lprintf_flt -lm
+override LDFLAGS       = -Wl,-Map,$(PRG).map 
 
 OBJCOPY        = avr-objcopy
 OBJDUMP        = avr-objdump

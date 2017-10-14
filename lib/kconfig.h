@@ -9,5 +9,12 @@
 #include "uart.h"
 #include "lib.h"
 
+#if 0
+#define printf(...)  do{}while(0)
+#else
+#define printf uart_print
+#endif
 
-#define printf  uart_print
+#define screen_cmd_puts  put_s
+#define screen_cmd_printf  uart_print
+
