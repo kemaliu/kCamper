@@ -103,18 +103,18 @@ void flow_update()
     
     speed = flow_num(FLOW_TANK1_OUT) - last_flow[FLOW_TANK1_OUT];
     speed = speed *60000/ms;
-    screen_cmd_printf("tank1 speed %lu\n", speed/1200);
+    screen_cmd_printf("tank1 speed %lu\n", speed/1071);
     last_flow[FLOW_TANK1_OUT] = flow_num(FLOW_TANK1_OUT);
     screen_cmd_printf("CELS(24,1,2,'");
-    screen_cmd_puts(int_to_float_str(speed, 1200));
+    screen_cmd_puts(int_to_float_str(speed, 1071));
     screen_cmd_puts("',15,0,1);\n");
 
     speed = flow_num(FLOW_TANK2_OUT) - last_flow[FLOW_TANK2_OUT];
     speed = speed *60000/ms;
-    screen_cmd_printf("tank2 speed %lu\n", speed/1200);
+    screen_cmd_printf("tank2 speed %lu\n", speed/1071);
     last_flow[FLOW_TANK2_OUT] = flow_num(FLOW_TANK2_OUT); 
     screen_cmd_printf("CELS(24,2,2,'");
-    screen_cmd_puts(int_to_float_str(speed, 1200));
+    screen_cmd_puts(int_to_float_str(speed, 1071));
     screen_cmd_puts("',15,0,1);\n");
     
 }
