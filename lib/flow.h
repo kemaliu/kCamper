@@ -4,6 +4,7 @@
 typedef enum{
     FLOW_TANK1_OUT = 0,
     FLOW_TANK2_OUT = 1,
+    FLOW_NUM
 }FLOW_CTRL_T;
 
 UINT32 flow_num(FLOW_CTRL_T index);
