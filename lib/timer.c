@@ -16,13 +16,10 @@ void timer_clear()
     __isr_cnt = 0;
 }
 
-static TIMECB __timer_cb = NULL;
 SIGNAL(TIMER2_OVF_vect)
 {
     __isr_cnt++;
-    if((__timer_cb)){
-	__timer_cb(1);
-    }
+
 }
 
 
@@ -38,11 +35,6 @@ void timer_init()
     timer_enable_int (_BV (TOIE2));
     TIMSK2 = 0x1;
     sei();
-}
-
-void timer_cb_set(TIMECB cb)
-{
-    __timer_cb = cb;    
 }
 
 UINT32 timebase_get()
@@ -73,3 +65,10 @@ UINT32 time_diff_ms(UINT32 last)
     return now;
 }
 
+
+
+UINT32 sys_run_seconds()
+{
+        /* for timer 125K freq, 488 isr = 1s*/
+    return __isr_cnt / 488;
+}
