@@ -1,24 +1,14 @@
 /*
  *
- *    加水口<----------<---switch_tank2<--pumb_tank2<--flow_tank2<--temp_tank2<--副水箱出口
- *                    ^
- *                    |
- *                    |                            
- *                  switch_tank1_loop
- *                    ^
- *                    |
- *                    |
- *    热水---------------switchB---------------------------->副水箱进水
- *      ^
- *      +---------------------------------------------
- *                                                   ^
- *    冷水无压---------temp_cold--->pump_Cold---flow_tank1---->换热器
- *              |                          |
- *              |                          |
- *              +-----原配水泵-------------->
+ * TANK2---------temp_tank2--->pump2------flow_tank2--|
+ *                                                    +----switch main-----                 +---switch2---->TANK2
+ *                                                    |                   |                 |                 
+ * TANK1-----+--temp_tank1--->pump1------flow_tank1---|                   |                 |
+ *           |                                                            |                 +---switch1---->TANK1
+ *           |                                                            |                 |
+ *           +-----large pump---------------------------------------------+-------->HEATER--+------->normal usage
  *
- *
- *    制冷液----------temp_hot
+ * 制冷液----------temp_hot
  *
  * - 功能：
  *  - 主水箱保温
@@ -29,7 +19,7 @@
  *   - 副水箱无水  两长
  *   - 主水箱无水  长鸣
  *   - 制冷液过冷  三长
-
+ * 
  * use internal OSC:
  * PB2/3/4/5 reserved for SPI
  * PB6/7 reserved for external OSC
@@ -43,10 +33,21 @@
  *   temp_tank2: PC1
  *   temp_heater:PC2
  *   flow_tank1_out:PC3(PCINT11)
- *   flow_tank2_out:PC3(PCINT12)
- *   switch_tank2&pumb_tank2:  PD2
- *   switchB:PD3
- *   switch_tank1_loop:PD4
+ *   flow_tank2_out:PC4(PCINT12)
+ *   
+ *   switch main: PC5
+ *   switch 1: PD3
+ *   switch 2: PD4
+ *   pump 1: PD6
+ *   pump 2: PD7
+ *
+ * - scene:
+ *                   | pump1  |  pump2   |   switch main  |  switch 1  |  switch 2 |
+ *  water tank1->2   |   on   |   off    |     on         |  off       |   on      |
+ *  water tank1 loop |   on   |   off    |     on         |  on        |   off     |
+ *  water tank2 loop |   off  |   on     |     on         |  off       |   on      |
+ *  water tank2->1   |   off  |   on     |     on         |  on        |   off     |
+ *  
  */
 
 
