@@ -47,7 +47,6 @@
  *  water tank1 loop |   on   |   off    |     on         |  on        |   off     |
  *  water tank2 loop |   off  |   on     |     on         |  off       |   on      |
  *  water tank2->1   |   off  |   on     |     on         |  on        |   off     |
- *  
  */
 
 
@@ -62,6 +61,41 @@
 #include <avr/interrupt.h>
 
 static short temp[TEMPERATURE_SENSOR_MAX_NUM];
+
+/* - scene:
+ *                   | bit5   |  bit4    |       bit2     |    bit1    |    bit0   |
+ *                   | pump1  |  pump2   |   switch main  |  switch 1  |  switch 2 |
+ *  normal           |   off  |   off    |     off        |  off       |   off     |
+ *  water tank1->2   |   on   |   off    |     on         |  off       |   on      |
+ *  water tank1 loop |   on   |   off    |     on         |  on        |   off     |
+ *  water tank2 loop |   off  |   on     |     on         |  off       |   on      |
+ *  water tank2->1   |   off  |   on     |     on         |  on        |   off     |
+
+ */
+
+enum{
+    SWITCH_MASK_PUMP_1 = 0x20,                /* bit5 */
+    SWITCH_MASK_PUMP_2 = 0x10,                /* bit4 */
+    SWITCH_MASK_MAIN = 4,                /* bit2 */
+    SWITCH_MASK_TANK1 = 2,                /* bit1 */
+    SWITCH_MASK_TANK2 = 1                /* bit0 */
+};
+
+enum{
+    SCENE_NORMAL = 0,
+    SCENE_WATER_TANK1_TO_TANK2 = 1,
+    SCENE_WATER_TANK1_LOOP = 2,
+    SCENE_WATER_TANK2_LOOP = 3,
+    SCENE_WATER_TANK2_TO_TANK1 = 4,
+}
+
+unsigned char scene[4] = {
+    0,
+    SWITCH_MASK_PUMP_1 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK2,
+    SWITCH_MASK_PUMP_1 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK1,
+    SWITCH_MASK_PUMP_2 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK2,
+    SWITCH_MASK_PUMP_2 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK1,
+};
 
 char * int_to_float_str(long val, int xv)
 {
