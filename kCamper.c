@@ -50,7 +50,7 @@
  */
 
 
-
+#include <stdlib.h>
 #include "lib/uart.h"
 #include "lib/ds18b20.h"
 #include "lib/timer.h"
@@ -60,7 +60,7 @@
 #include <util/delay.h>
 #include <avr/interrupt.h>
 
-static short temp[TEMPERATURE_SENSOR_MAX_NUM];
+static short temperature[TEMPERATURE_SENSOR_MAX_NUM];
 
 /* - scene:
  *                   | bit5   |  bit4    |       bit2     |    bit1    |    bit0   |
@@ -87,15 +87,15 @@ enum{
     SCENE_WATER_TANK1_LOOP = 2,
     SCENE_WATER_TANK2_LOOP = 3,
     SCENE_WATER_TANK2_TO_TANK1 = 4,
-}
-
-unsigned char scene[4] = {
-    0,
-    SWITCH_MASK_PUMP_1 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK2,
-    SWITCH_MASK_PUMP_1 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK1,
-    SWITCH_MASK_PUMP_2 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK2,
-    SWITCH_MASK_PUMP_2 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK1,
 };
+
+/* unsigned char scene[4] = { */
+/*     0, */
+/*     SWITCH_MASK_PUMP_1 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK2, */
+/*     SWITCH_MASK_PUMP_1 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK1, */
+/*     SWITCH_MASK_PUMP_2 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK2, */
+/*     SWITCH_MASK_PUMP_2 | SWITCH_MAIN_MASK | SWITCH_MASK_TANK1, */
+/* }; */
 
 char * int_to_float_str(long val, int xv)
 {
@@ -112,47 +112,158 @@ char * int_to_float_str(long val, int xv)
 void ui_temp_update(char index)
 {
     screen_cmd_printf("CELS(24,%d,1,'", TEMPERATURE_SENSOR_TANK1==index?1:2);
-    if(temp[index] <= -1000)
+    if(temperature[index] <= -1000)
         screen_cmd_puts("NA");
     else
-        screen_cmd_puts(int_to_float_str(temp[index], 16));
+        screen_cmd_puts(int_to_float_str(temperature[index], 16));
     screen_cmd_puts("',15,0,1);\n");
 }
 
 void temp_update()
 {
-    temp[TEMPERATURE_SENSOR_TANK1] = ds_get_temperature_x16((char)TEMPERATURE_SENSOR_TANK1);
-    ui_temp_update(TEMPERATURE_SENSOR_TANK1);
-    temp[TEMPERATURE_SENSOR_TANK2] = ds_get_temperature_x16((char)TEMPERATURE_SENSOR_TANK2);
-    ui_temp_update(TEMPERATURE_SENSOR_TANK2);
-    temp[TEMPERATURE_SENSOR_HEATER] = ds_get_temperature_x16((char)TEMPERATURE_SENSOR_HEATER);
+    static UINT32 last_sample_time = 0;
+    static short old_temperature[TEMPERATURE_SENSOR_MAX_NUM] = {-1000, -1000, -1000};
+    if(!last_sample_time){
+            /* do sample */
+        last_sample_time = timebase_get();
+        temperature[TEMPERATURE_SENSOR_TANK1] = ds_get_temperature_sample(TEMPERATURE_SENSOR_TANK1);
+        temperature[TEMPERATURE_SENSOR_TANK2] = ds_get_temperature_sample(TEMPERATURE_SENSOR_TANK2);
+        temperature[TEMPERATURE_SENSOR_HEATER] = ds_get_temperature_sample(TEMPERATURE_SENSOR_HEATER);
+    }else{
+        if(time_diff_ms(last_sample_time) <= 2000) /* sample need wait 2 seconds */
+            return;
+        if(!temperature[TEMPERATURE_SENSOR_TANK1]) /* start sample return OK */
+            temperature[TEMPERATURE_SENSOR_TANK1] = ds_get_temperature_read(TEMPERATURE_SENSOR_TANK1);
+        if(!temperature[TEMPERATURE_SENSOR_TANK2]) /* start sample return OK */
+            temperature[TEMPERATURE_SENSOR_TANK2] = ds_get_temperature_read(TEMPERATURE_SENSOR_TANK2);
+        if(!temperature[TEMPERATURE_SENSOR_HEATER]) /* start sample return OK */
+            temperature[TEMPERATURE_SENSOR_HEATER] = ds_get_temperature_read(TEMPERATURE_SENSOR_HEATER);
+        if(old_temperature[TEMPERATURE_SENSOR_TANK1] != temperature[TEMPERATURE_SENSOR_TANK1]){
+            ui_temp_update(TEMPERATURE_SENSOR_TANK1);
+            old_temperature[TEMPERATURE_SENSOR_TANK1] = temperature[TEMPERATURE_SENSOR_TANK1];
+        }
+        if(old_temperature[TEMPERATURE_SENSOR_TANK2] != temperature[TEMPERATURE_SENSOR_TANK2]){
+            ui_temp_update(TEMPERATURE_SENSOR_TANK2);
+            old_temperature[TEMPERATURE_SENSOR_TANK2] = temperature[TEMPERATURE_SENSOR_TANK2];
+        }
+        last_sample_time = 0;
+    }
 }
 
 void flow_update()
 {
     static UINT32 last_flow[FLOW_NUM] = {0, 0};
-    UINT32 speed = flow_num(FLOW_TANK1_OUT);
+    UINT32 speed;
+    static UINT32 old_speed[FLOW_NUM] = {0xffffffff, 0xffffffff};
     static UINT32 time_last = 0;
     UINT32 ms = time_diff_ms(time_last);
     time_last = timebase_get();
     
     speed = flow_num(FLOW_TANK1_OUT) - last_flow[FLOW_TANK1_OUT];
     speed = speed *60000/ms;
-    screen_cmd_printf("tank1 speed %lu\n", speed/1071);
+    
     last_flow[FLOW_TANK1_OUT] = flow_num(FLOW_TANK1_OUT);
-    screen_cmd_printf("CELS(24,1,2,'");
-    screen_cmd_puts(int_to_float_str(speed, 1071));
-    screen_cmd_puts("',15,0,1);\n");
+    if(speed != old_speed[FLOW_TANK1_OUT]){
+        screen_cmd_printf("CELS(24,1,2,'");
+        screen_cmd_puts(int_to_float_str(speed, 1071));
+        screen_cmd_puts("',15,0,1);\n");
+        old_speed[FLOW_TANK1_OUT] = speed;
+    }
 
     speed = flow_num(FLOW_TANK2_OUT) - last_flow[FLOW_TANK2_OUT];
     speed = speed *60000/ms;
-    screen_cmd_printf("tank2 speed %lu\n", speed/1071);
-    last_flow[FLOW_TANK2_OUT] = flow_num(FLOW_TANK2_OUT); 
-    screen_cmd_printf("CELS(24,2,2,'");
-    screen_cmd_puts(int_to_float_str(speed, 1071));
-    screen_cmd_puts("',15,0,1);\n");
+    if(speed != old_speed[FLOW_TANK2_OUT]){
+        last_flow[FLOW_TANK2_OUT] = flow_num(FLOW_TANK2_OUT); 
+        screen_cmd_printf("CELS(24,2,2,'");
+        screen_cmd_puts(int_to_float_str(speed, 1071));
+        screen_cmd_puts("',15,0,1);\n");
+        old_speed[FLOW_TANK2_OUT] = speed;
+    }
     
 }
+
+static char rx_buf[16];
+static char rx_pos = 0;
+static char button=-1;
+void uartRcv(uint8 c)
+{
+        /* filter [BN:4] */
+    if(!rx_pos){
+        if(c=='['){
+            rx_buf[rx_pos++] = c;
+        }else{
+            goto do_clr;
+        }
+    }else{
+        if(rx_pos==1 && c=='B'){
+            rx_buf[rx_pos++] = c;
+        }else if(rx_pos==2 && c=='N'){
+            rx_buf[rx_pos++] = c;
+        }else if(rx_pos==3 && c==':'){
+            rx_buf[rx_pos++] = c;
+        }else if(rx_pos>3 && c<='9' && c>='0'){
+            rx_buf[rx_pos++] = c;
+        }else if(rx_buf>4 && c==']'){ /* done */
+            rx_buf[rx_pos++] = c;
+            button = strtol(rx_buf+4, NULL, 10);
+            goto do_clr;
+        }else{
+            goto do_clr;
+        }
+    }
+    return;
+  do_clr:
+    rx_buf[0] = '\0';
+    rx_pos = 0;
+    
+}
+
+void ui_status_update(char * status_str)
+{
+    screen_cmd_puts("SXY(0,90);");
+    screen_cmd_puts("LABL(24,0,50,239,'");
+    screen_cmd_puts(status_str);
+    screen_cmd_puts("',1,1);"); /* red, center */
+    screen_cmd_puts("SXY(0,0);\n");
+}
+
+
+
+
+static inline void main_opr()
+{
+    static char scene;
+    static blink = 0;
+    char buf[16];
+    if(button<0){
+        
+    }else{
+        sprintf(buf, "%d", button);
+        button = -1;
+        ui_status_update(buf);
+    }
+    
+}
+
+
+
+static char main_ui_cmd[] = "DR3;"
+"TPN(2);"
+"CLS(0);"
+"TABL(0,0,79,30,3,3,19);"
+"CELS(24,0,0,'',15,0,1);"
+"CELS(24,0,1,'温度',2,0,1);"
+"CELS(24,0,2,'流速',2,0,1);"
+"CELS(24,1,0,'主水箱',2,0,1);"
+"CELS(24,1,1,'',2,0,1);"
+"CELS(24,1,2,'',2,0,1);"
+"CELS(24,2,0,'副水箱',2,0,1);"
+"CELS(24,2,1,'',2,0,1);"
+"CELS(24,2,2,'',2,0,1);"
+"SBC(0);"
+"SXY(0,90);BOXF(0,0,329,3,2);DS16(1,17,'状态:',2,0);LABL(24,40,9,179,'自动保温 ',1,0);BTN(1,180,5,239,35,4);LABL(24,181,9,238,'设置',15,1);SXY(0,0);"
+    "SXY(0,210);BOXF(0,0,319,3,2);BTN(2,0,10,119,50,4);LABL(24,2,17,118,'自动保温',15,1);BTN(3,120,10,239,50,4);LABL(24,122,17,238,'水箱加热',15,1);BTN(4,0,60,119,100,4);LABL(24,2,67,118,'主箱加水',15,1);BTN(5,120,60,239,100,4);LABL(24,122,67,238,'副箱加水',15,1);SXY(0,0);\r\n";
+
 
 
 int main()
@@ -169,36 +280,21 @@ int main()
     flow_init();
     screen_cmd_puts("SPG(1);\n"); /* display main page */    
     _delay_ms(300);               /* wait 100ms for main page drawing */
+    screen_cmd_puts(main_ui_cmd);
+    _delay_ms(2000);               /* wait 100ms for main page drawing */
 #if 0
     screen_cmd_puts("TERM;\n"); /* display main page */
 #endif
+    char blink = 0;
     while(1){
-        printf("--kCamper %d time %lu\n", cnt++, sys_run_seconds());
         temp_update();
         flow_update();
-#if 0
-        puts("  temperature:\n");
-        puts("    TANK1:");
-        if(temp[TEMPERATURE_SENSOR_TANK1] <= -1000)
-            printf("NA\n");
-        else
-            printf("%d\n", temp[TEMPERATURE_SENSOR_TANK1]/16);
-        puts("    TANK2:");
-        if(temp[TEMPERATURE_SENSOR_TANK2] <= -1000)
-            printf("NA\n");
-        else
-            printf("%d\n", temp[TEMPERATURE_SENSOR_TANK2]/16);
-        
-        puts("    HEATER:");
-        if(temp[TEMPERATURE_SENSOR_HEATER] <= -1000)
-            printf("NA\n");
-        else
-            printf("%d\n", temp[TEMPERATURE_SENSOR_HEATER]/16);
-        
-        printf("  flow: TANK1  %lu TANK2  %lu\n", flow_num(FLOW_TANK1_OUT), flow_num(FLOW_TANK2_OUT));
-#endif
-        
-        _delay_ms(1000);
+            /* do blink */
+
+        main_opr();
+        /* screen_cmd_printf("SXY(0,210);LABL(24,2,17,118,'自动保温',%d,1);SXY(0,0);\n", blink?2:1); */
+        /* blink = !blink; */
+        _delay_ms(100);
     }
 }
 

@@ -78,7 +78,7 @@ SIGNAL(USART_RX_vect)
 SIGNAL(SIG_UART_RECV)
 #endif
 {
-#if 0
+#if 1
     uartRcv(UDR);
 #else
     put(UDR);
@@ -141,7 +141,6 @@ INT8 uart_poll_c(UINT8 * pC)
 
 
 unsigned char get_hex()
-
 {
     unsigned char value = 0;
     while(1){
@@ -200,7 +199,7 @@ void init_uart(uint16 baud)
     //使能接收中断，使能接收，使能发送
     UCSRB = (1<<RXEN)|		/* enable rx */
 	    (1<<TXEN)|		/* enable tx */
-	    (0<<RXCIE);		/* disable rx interrupt */
+	    (1<<RXCIE);		/* enable rx interrupt */
     sei();
 }
 

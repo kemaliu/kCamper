@@ -168,3 +168,50 @@ INT16 ds_get_temperature_x16(char index)
     temperature = (INT16)((UINT16)low|((UINT16)high << 8));
     return temperature;
 }
+
+
+
+
+INT16 ds_get_temperature_sample(char index)
+{
+    UINT32 wait_cnt = 0;
+    UINT8 high, low;
+    UINT16 temperature;
+    INT8 ret;
+    ret = ds_reset(index);
+    if(ret < 0){
+        return -1001;
+    }
+    //跳过ROM，不读地址，直接通讯
+    ds_write_byte(index, 0xcc);
+    //开始转换
+    ds_write_byte(index, 0x44);
+    
+    ds_pin_input(index);
+        /* parasite power mode: output high instead of check QD for converting status*/
+    ds_pin_output_high(index);
+    return 0;
+}
+
+
+
+INT16 ds_get_temperature_read(char index)
+{
+    UINT32 wait_cnt = 0;
+    UINT8 high, low;
+    UINT16 temperature;
+    INT8 ret;
+        /* start read */
+    ds_reset(index);
+    //跳过ROM，不读地址，直接通讯
+    ds_write_byte(index, 0xcc);
+    //开始转换
+    ds_write_byte(index, 0xbe);
+    low = ds_read_byte(index);
+    high = ds_read_byte(index);
+
+        /* now get temperature, powerdown chip */
+    ds_pin_output_low(index);
+    temperature = (INT16)((UINT16)low|((UINT16)high << 8));
+    return temperature;
+}
