@@ -41,8 +41,10 @@
  *   pump 1: PD6
  *   pump 2: PD7
  *
- * - scene:
+ *  scene:
+ *                   | bit5   |  bit4    |       bit2     |    bit1    |    bit0   |
  *                   | pump1  |  pump2   |   switch main  |  switch 1  |  switch 2 |
+ *  normal           |   off  |   off    |     off        |  off       |   off     |
  *  water tank1->2   |   on   |   off    |     on         |  off       |   on      |
  *  water tank1 loop |   on   |   off    |     on         |  on        |   off     |
  *  water tank2 loop |   off  |   on     |     on         |  off       |   on      |
@@ -88,6 +90,27 @@ enum{
     SCENE_WATER_TANK2_LOOP = 3,
     SCENE_WATER_TANK2_TO_TANK1 = 4,
 };
+
+#define WATER_TEMPERATURE_UNIT 1
+
+#define WATER_WARM_TEMPERATURE_MAX 10
+#define WATER_WARM_TEMPERATURE_MIN 2
+
+
+#define WATER_HEAT_TEMPERATURE_MAX 45
+#define WATER_HEAT_TEMPERATURE_MIN 25
+
+
+#define WATER_LITE_UNIT 10
+
+#define TANK1_WATER_LITE_MAX 70
+#define TANK1_WATER_LITE_MIN 10
+
+
+#define TANK2_WATER_LITE_MAX 90
+#define TANK2_WATER_LITE_MIN 10
+
+
 
 /* unsigned char scene[4] = { */
 /*     0, */
@@ -218,30 +241,167 @@ void uartRcv(uint8 c)
     
 }
 
-void ui_status_update(char * status_str)
+void ui_status_update(char * mode_str, char * status_str)
 {
     screen_cmd_puts("SXY(0,90);");
+        /* update data mode */
+    screen_cmd_puts("LABL(24,40,9,179,'");
+    screen_cmd_puts(mode_str);
+    screen_cmd_puts("',4,0);");
+        /* update status */
     screen_cmd_puts("LABL(24,0,50,239,'");
     screen_cmd_puts(status_str);
-    screen_cmd_puts("',1,1);"); /* red, center */
+    screen_cmd_puts("',2,0);"); /* red, left align */
     screen_cmd_puts("SXY(0,0);\n");
 }
 
+void operation_update(char button, char destination)
+{
+    char status[16];
+    char *mode;
+    switch(button){
+        case 0:
+            mode = "正常用水";
+            status[0] = '\0';
+            break;
+        case 2:             /* keep warm */
+            mode = "自动保温";
+            sprintf(status, "保温温度:%d", destination);
+            break;
+        case 3:             /* heat tank1 */
+            mode = "主箱加温";
+            sprintf(status, "加温温度:%d", destination);
+            break;
+        case 4:             /* tank2->tank1 */
+            mode = "主箱加水";
+            sprintf(status, "加水量:%dL", destination);
+            break;
+        case 5:             /* tank1->tank2 */
+            mode = "副箱加水";
+            sprintf(status, "加水量:%dL", destination);
+            break;
+        default:
+            return;
+    }
+    ui_status_update(mode, status);
+    
+}
 
-
+void button_blink(int button, int blink)
+{
+    char * fmt = "SXY(0,210);LABL(24,%d,%d,%d,'%s',%d,1);SXY(0,0);\n";
+    static UINT32 last_time = 0;
+    static char color = 1;
+    if(!blink){
+        color = 15;
+        goto do_update;
+    }
+    if(time_diff_ms(last_time) > 500){
+        last_time = timebase_get();
+        color = (color==1)?2:1;
+        goto do_update;
+    }
+    return;
+  do_update:
+    switch(button){
+        case 2:             /* keep warm */
+            screen_cmd_printf(fmt,2,17,118,"自动保温",color);
+            break;
+        case 3:             /* heat tank1 */
+            screen_cmd_printf(fmt,122,17,238,"水箱加热",color);
+            break;
+        case 4:             /* tank2->tank1 */
+            screen_cmd_printf(fmt,2,67,118,"主箱加水",color);
+            break;
+        case 5:             /* tank1->tank2 */
+            screen_cmd_printf(fmt,122,67,238,"副箱加水",color);
+            break;
+    }
+}
 
 static inline void main_opr()
 {
-    static char scene;
+    static char scene = 0;
+    static unsigned char active_button = 0;
     static blink = 0;
+    static unsigned int destination; /* operation destination
+                                      * SCENE_NORMAL: useless
+                                      * SCENE_WATER_TANK1_TO_TANK2: how many lites to add
+                                      * SCENE_WATER_TANK1_LOOP: tank1 heat/warm temperature
+                                      * SCENE_WATER_TANK2_LOOP: tank2 wam temperature
+                                      * SCENE_WATER_TANK2_TO_TANK1: how many lites to add
+                                      */
     char buf[16];
-    if(button<0){
-        
-    }else{
-        sprintf(buf, "%d", button);
+    char status_need_update = 0;
+        /* display key info */
+    if(button>=0){
+        switch(button){
+            case 0:             /* screen press */
+                break;
+            case 1:             /* change setting */
+                switch(active_button){
+                    case 2:             /* keep warm */
+                            /* warm tank1/tank2 warming */
+                        destination = WATER_WARM_TEMPERATURE_MIN + 
+                            (destination - WATER_WARM_TEMPERATURE_MIN + 1)%
+                            (WATER_WARM_TEMPERATURE_MAX-WATER_WARM_TEMPERATURE_MIN+WATER_TEMPERATURE_UNIT);
+                        break;
+                    case 3:             /* heat tank1 */
+                        destination = WATER_HEAT_TEMPERATURE_MIN + 
+                            (destination - WATER_HEAT_TEMPERATURE_MIN + 1)%
+                            (WATER_HEAT_TEMPERATURE_MAX-WATER_HEAT_TEMPERATURE_MIN+WATER_TEMPERATURE_UNIT);
+                            /* change heat temperature */
+                        break;
+                    case 4:             /* tank2->tank1 */
+                            /* change Lites to add */
+                        destination = TANK1_WATER_LITE_MIN + 
+                            (destination - TANK1_WATER_LITE_MIN + 10)%
+                            (TANK1_WATER_LITE_MAX-TANK1_WATER_LITE_MIN+WATER_LITE_UNIT);
+                        break;
+                    case 5:             /* tank1->tank2 */
+                        destination = TANK2_WATER_LITE_MIN + 
+                            (destination - TANK2_WATER_LITE_MIN + 10)%
+                            (TANK2_WATER_LITE_MAX-TANK2_WATER_LITE_MIN+WATER_LITE_UNIT);
+                            /* change Lites to add */
+                        break;
+                }
+                status_need_update = 1;
+                break;
+            case 2:             /* keep warm */
+                destination = 4;
+                status_need_update = 1;
+                break;
+            case 3:             /* heat tank1 */
+                destination = 35;
+                status_need_update = 1;
+                break;
+            case 4:             /* tank2->tank1 */
+                destination = 30;
+                status_need_update = 1;
+                break;
+            case 5:             /* tank1->tank2 */
+                destination = 30;
+                status_need_update = 1;
+                break;
+        }
+        if(button>=2 && button <= 5){
+            if(active_button == button){
+                    /* disable the function */
+                button_blink(active_button, 0);
+                active_button = 0;
+            }else{
+                button_blink(active_button, 0);
+                active_button = button;
+            }
+        }
+        if((status_need_update))
+            operation_update(active_button, destination);
+            /* clr button value */
         button = -1;
-        ui_status_update(buf);
     }
+
+        /* button blink */
+    button_blink(active_button, 1);
     
 }
 
@@ -261,7 +421,7 @@ static char main_ui_cmd[] = "DR3;"
 "CELS(24,2,1,'',2,0,1);"
 "CELS(24,2,2,'',2,0,1);"
 "SBC(0);"
-"SXY(0,90);BOXF(0,0,329,3,2);DS16(1,17,'状态:',2,0);LABL(24,40,9,179,'自动保温 ',1,0);BTN(1,180,5,239,35,4);LABL(24,181,9,238,'设置',15,1);SXY(0,0);"
+"SXY(0,90);BOXF(0,0,329,3,2);DS16(1,17,'模式:',2,0);LABL(24,40,9,179,'正常用水',1,0);BTN(1,180,5,239,35,4);LABL(24,181,9,238,'设置',15,1);SXY(0,0);"
     "SXY(0,210);BOXF(0,0,319,3,2);BTN(2,0,10,119,50,4);LABL(24,2,17,118,'自动保温',15,1);BTN(3,120,10,239,50,4);LABL(24,122,17,238,'水箱加热',15,1);BTN(4,0,60,119,100,4);LABL(24,2,67,118,'主箱加水',15,1);BTN(5,120,60,239,100,4);LABL(24,122,67,238,'副箱加水',15,1);SXY(0,0);\r\n";
 
 
