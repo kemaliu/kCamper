@@ -1,5 +1,12 @@
 .PHONY=slave host default clean .burn .reset
-default:host slave
+
+
+default:
+	@echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	@echo !!!!!!!!!!!!!!!!!!!build host image !!!!!!!!!!!!!!
+	@echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	@make -f kCamper.mk MODE=HOST
+
 
 .burn:
 	@make -f kCamper.mk MODE=HOST .burn
@@ -8,18 +15,6 @@ default:host slave
 .reset:
 	@make -f kCamper.mk .reset
 
-
-slave:
-	@echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	@echo !!!!!!!!!!!!!!!!!!!build slave image!!!!!!!!!!!!!!
-	@echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	@make -f kCamper.mk MODE=SLAVE
-
-host:
-	@echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	@echo !!!!!!!!!!!!!!!!!!!build host image !!!!!!!!!!!!!!
-	@echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	@make -f kCamper.mk MODE=HOST
 
 
 clean:

@@ -18,7 +18,6 @@ SIGNAL(PCINT1_vect)
 
     UINT8 val = (PINC >> 3) & 3;
     UINT8 change;
-    int i;
     change = val ^ last_pinc;
     last_pinc = val;
     if((change & 1) && ((val & 1) == 0)){ /* PCINT11 low interrupt */
@@ -52,6 +51,6 @@ UINT32 flow_num(FLOW_CTRL_T index)
 void flow_reset(FLOW_CTRL_T index)
 {
     if(index > FLOW_TANK2_OUT || index < FLOW_TANK1_OUT)
-        return 0;
+        return;
     __flow_cnt[index] = 0;
 }

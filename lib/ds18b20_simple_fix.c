@@ -124,7 +124,6 @@ UINT8 ds_read_byte(char index)
 
 INT16 ds_get_temperature_x16(char index)
 {
-    UINT32 wait_cnt = 0;
     UINT8 high, low;
     UINT16 temperature;
     INT8 ret;
@@ -174,9 +173,6 @@ INT16 ds_get_temperature_x16(char index)
 
 INT16 ds_get_temperature_sample(char index)
 {
-    UINT32 wait_cnt = 0;
-    UINT8 high, low;
-    UINT16 temperature;
     INT8 ret;
     ret = ds_reset(index);
     if(ret < 0){
@@ -197,10 +193,8 @@ INT16 ds_get_temperature_sample(char index)
 
 INT16 ds_get_temperature_read(char index)
 {
-    UINT32 wait_cnt = 0;
     UINT8 high, low;
     UINT16 temperature;
-    INT8 ret;
         /* start read */
     ds_reset(index);
     //跳过ROM，不读地址，直接通讯

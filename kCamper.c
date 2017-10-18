@@ -54,7 +54,6 @@
 
 #include <stdlib.h>
 #include "lib/uart.h"
-#include "lib/ds18b20.h"
 #include "lib/timer.h"
 #include "lib/flow.h"
 #include "lib/kconfig.h"
@@ -123,7 +122,7 @@ enum{
 char * int_to_float_str(long val, int xv)
 {
     static char buf[8];
-    char pos = 0;
+    unsigned char pos = 0;
     if(val < 0){
         buf[pos++] = '-';
         val = 0-val;
@@ -132,7 +131,7 @@ char * int_to_float_str(long val, int xv)
     return buf;
 }
 
-void ui_temp_update(char index)
+void ui_temp_update(unsigned char index)
 {
     screen_cmd_printf("CELS(24,%d,1,'", TEMPERATURE_SENSOR_TANK1==index?1:2);
     if(temperature[index] <= -1000)
@@ -206,7 +205,7 @@ void flow_update()
 }
 
 static char rx_buf[16];
-static char rx_pos = 0;
+static unsigned char rx_pos = 0;
 static char button=-1;
 void uartRcv(uint8 c)
 {
@@ -226,7 +225,7 @@ void uartRcv(uint8 c)
             rx_buf[rx_pos++] = c;
         }else if(rx_pos>3 && c<='9' && c>='0'){
             rx_buf[rx_pos++] = c;
-        }else if(rx_buf>4 && c==']'){ /* done */
+        }else if(rx_pos>4 && c==']'){ /* done */
             rx_buf[rx_pos++] = c;
             button = strtol(rx_buf+4, NULL, 10);
             goto do_clr;
@@ -321,9 +320,7 @@ void button_blink(int button, int blink)
 
 static inline void main_opr()
 {
-    static char scene = 0;
     static unsigned char active_button = 0;
-    static blink = 0;
     static unsigned int destination; /* operation destination
                                       * SCENE_NORMAL: useless
                                       * SCENE_WATER_TANK1_TO_TANK2: how many lites to add
@@ -331,7 +328,6 @@ static inline void main_opr()
                                       * SCENE_WATER_TANK2_LOOP: tank2 wam temperature
                                       * SCENE_WATER_TANK2_TO_TANK1: how many lites to add
                                       */
-    char buf[16];
     char status_need_update = 0;
         /* display key info */
     if(button>=0){
@@ -428,8 +424,6 @@ static char main_ui_cmd[] = "DR3;"
 
 int main()
 {
-    int cnt = 0;
-    int i;
         /* init uart */
     init_uart(19200);
         /* init timer */
@@ -445,15 +439,10 @@ int main()
 #if 0
     screen_cmd_puts("TERM;\n"); /* display main page */
 #endif
-    char blink = 0;
     while(1){
         temp_update();
         flow_update();
-            /* do blink */
-
         main_opr();
-        /* screen_cmd_printf("SXY(0,210);LABL(24,2,17,118,'×Ô¶¯±£ÎÂ',%d,1);SXY(0,0);\n", blink?2:1); */
-        /* blink = !blink; */
         _delay_ms(100);
     }
 }
