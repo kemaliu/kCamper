@@ -2,37 +2,19 @@
 #include "lib/kconfig.h"
 #include "ui.h"
 #define NO_OFFSET
-void setup_button_enable(char enable)
-{
-#if 0
-    static char enabled = 1;
-    
-    if((enable) &&  !enabled){
-        enabled = 1;
-#ifdef NO_OFFSET
-        screen_const_puts("BTN(1,180,95,239,125,4);LABL(24,181,99,238,'设置',15,1);\n");
-#else
-        screen_const_puts(AREA_1_START);
-        screen_const_puts("BTN(1,180,5,239,35,4);LABL(24,181,9,238,'设置',15,1);SXY(0,0);\n");
-#endif
-    }
-    if(!enable &&  (enabled)){
-        enabled = 0;
-#ifdef NO_OFFSET
-        screen_const_puts("BTN(1,180,95,180,95,4);BOXF(180,95,239,125,0);\n");
-#else
-        screen_const_puts(AREA_1_START);
-        screen_const_puts("BTN(1,180,5,180,5,4);BOXF(180,5,239,35,0);;SXY(0,0);\n");
-#endif
-    }
-#endif                                                        
-}
 
 
 void pump_status_show(char status)
 {
 #ifdef NO_OFFSET
-
+    screen_const_puts("LABL(16,175,99,239,'泵:");
+    if(status == 0)
+        screen_const_puts("停");
+    else if(status == 1)
+        screen_const_puts("低速");
+    else
+        screen_const_puts("全速");
+    screen_const_puts("',15,0);\n");
 #else
     
 #endif

@@ -101,15 +101,41 @@ unsigned char __scene_cfg[SCENE_TOTAL_NUM] = {
 
 void valve_setup(char scene)
 {
+    unsigned char cfg = __scene_cfg[scene];
+    screen_const_puts("LABL(16,175,116,239,'进水:");
+    if(cfg & SWITCH_MASK_MAIN){
+        screen_const_puts("2");
+    }else{
+        screen_const_puts("1");
+    }
+    screen_const_puts("',15,0);\n");
     
+    screen_const_puts("LABL(16,175,133,239,'出水1:");
+    if(cfg & SWITCH_MASK_TANK1){
+        screen_const_puts("开");
+    }else{
+        screen_const_puts("关");
+    }
+    screen_const_puts("',15,0);\n");
+
+    screen_const_puts("LABL(16,175,150,239,'出水2:");
+    if(cfg & SWITCH_MASK_TANK2){
+        screen_const_puts("开");
+    }else{
+        screen_const_puts("关");
+    }
+    screen_const_puts("',15,0);\n");
 }
 enum{
     PUMP_OFF,
-    PUMP_LOW_POWER,
-    PUMP_HIGH_POWER,
+    PUMP_LOW_SPEED,
+    PUMP_FULL_SPEED
 };
+
+/* 0:off  1:low speed 2:full speed */
 void pump_enable(char enable)
 {
+    pump_status_show(enable);
 }
 
 #define WATER_TEMPERATURE_UNIT 1
@@ -251,11 +277,11 @@ void ui_status_update(char * mode_str, char * status_str)
 {
     screen_const_puts(AREA_1_START);
         /* update data mode */
-    screen_const_puts("LABL(24,40,9,179,'");
+    screen_const_puts("LABL(24,40,9,174,'");
     screen_cmd_puts(mode_str);
     screen_const_puts("',4,0);");
         /* update status */
-    screen_const_puts("LABL(24,0,50,239,'");
+    screen_const_puts("LABL(24,0,50,174,'");
     screen_cmd_puts(status_str);
     screen_const_puts("',2,0);"); /* red, left align */
     screen_const_puts("SXY(0,0);\n");
@@ -375,15 +401,15 @@ int scene_process(char scene, char dest)
         pump_enable(PUMP_OFF);
         ui_working_info_update("停泵");
     }else if(scene_step==1 && scene_time()>STEP2_START_TIME){
-        valve_setup(SCENE_NORMAL);
+        valve_setup(scene);
         scene_step=2;
         ui_working_info_update("设置阀门");
     }else if(scene_step==2 && scene_time()>STEP3_START_TIME){
         if(scene == SCENE_NORMAL){
-            pump_enable(PUMP_HIGH_POWER);
+            pump_enable(PUMP_FULL_SPEED);
             ui_working_info_update("开泵(全速)");
         }else{
-            pump_enable(PUMP_LOW_POWER);
+            pump_enable(PUMP_LOW_SPEED);
             ui_working_info_update("开泵(低速)");
         }
         if(scene == SCENE_WATER_TANK1_TO_TANK2)
