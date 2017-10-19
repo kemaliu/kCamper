@@ -12,5 +12,7 @@ void flow_init();
 
 void flow_reset(FLOW_CTRL_T index);
 
+UINT32 flow_cnt(FLOW_CTRL_T index);
+
 UINT32 flow_cnt_speed(FLOW_CTRL_T index);
 #endif  /* #ifndef __FLOW_CTRL_H__ */

@@ -60,6 +60,11 @@ void flow_reset(FLOW_CTRL_T index)
 
 
 
+UINT32 flow_cnt(FLOW_CTRL_T index)
+{
+    return __info[index].cnt;
+}
+
 /* return speed (cnt inc number)/1min  */
 UINT32 flow_cnt_speed(FLOW_CTRL_T index)
 {
@@ -75,7 +80,6 @@ UINT32 flow_cnt_speed(FLOW_CTRL_T index)
         __info[index].speed = speed;
         __info[index].last_cnt = __info[index].cnt;
         __info[index].last_time = timebase_get();
-        printf("cnt %lu speed %lu\n", __info[index].cnt, __info[index].speed);
         return speed;
     }
 }
