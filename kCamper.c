@@ -267,7 +267,7 @@ void ui_working_info_show()
     if((working_info_pending)){
         screen_const_puts(AREA_1_START);
             /* update data mode */
-        screen_const_puts("LABL(24,0,80,239,'");
+        screen_const_puts("LABL(24,0,80,180,'");
         screen_cmd_puts(working_info);
         screen_const_puts("',15,0);SXY(0,0);\n");
         working_info_pending = 0;
@@ -281,7 +281,7 @@ void ui_working_info_update(char * str)
     working_info_pending = 1;
 }
 
-void ui_mode_update(char button, char destination)
+void ui_mode_setting_show(char button, char destination)
 {
     char status[16];
     char *mode;
@@ -349,7 +349,6 @@ void button_blink(int button, int blink)
 static UINT32 scene_start_time = 0;
 static UINT32 scene_done_time = 0;
 static char scene_step = 0;
-
 void scene_reset()
 {
     scene_start_time = 0;
@@ -382,10 +381,10 @@ int scene_process(char scene, char dest)
     }else if(scene_step==2 && scene_time()>STEP3_START_TIME){
         if(scene == SCENE_NORMAL){
             pump_enable(PUMP_HIGH_POWER);
-            ui_working_info_update("开泵(高功率)");
+            ui_working_info_update("开泵(全速)");
         }else{
             pump_enable(PUMP_LOW_POWER);
-            ui_working_info_update("开泵(低功率)");
+            ui_working_info_update("开泵(低速)");
         }
         if(scene == SCENE_WATER_TANK1_TO_TANK2)
             flow_reset(FLOW_TANK2_OUT);
@@ -408,7 +407,7 @@ int scene_process(char scene, char dest)
             case SCENE_WATER_TANK2_TO_TANK1:
                 val = flow_cnt(FLOW_TANK1_OUT);
                 if(val != old_val){
-                    sprintf(buf,"已经加水:%sL", int_to_float_str(val, 1071));
+                    sprintf(buf,"已加:%sL", int_to_float_str(val, 1071));
                     ui_working_info_update(buf);
                     old_val = val;
                 }
@@ -418,35 +417,9 @@ int scene_process(char scene, char dest)
 }
 
 
-#define MODIFIED_NONE 0
-#define MODIFIED_PARAM 1
-#define MODIFIED_MODE 2
-
-
-char operation_loop(char mod_status, char button, char destination)
+char operation_loop(char button, char destination)
 {
-    static UINT32 param_mod_time;
     char scene_ret;
-    char *time_buf = "0秒后开始工作";
-    static last_diff = 0xff;
-    if(mod_status == MODIFIED_MODE){
-        setup_button_enable(1);
-        scene_reset();
-        param_mod_time = sys_run_seconds();
-    }else if(mod_status == MODIFIED_PARAM){
-        param_mod_time = sys_run_seconds();
-    }
-    if(sys_run_seconds() - param_mod_time < 5){
-            /* wait 10 seconds to make sure user input stable */
-        if(sys_run_seconds() - param_mod_time != last_diff){
-            time_buf[0] = '0' + (5 - (sys_run_seconds() - param_mod_time));
-            ui_working_info_update(time_buf);
-        }
-        return NULL;
-    }
-#if 1
-    setup_button_enable(0);
-        /* user input stable, now we can operation */
     switch(button){
         case 0:
             scene_ret = scene_process(SCENE_NORMAL, destination);
@@ -466,13 +439,17 @@ char operation_loop(char mod_status, char button, char destination)
             scene_ret = scene_process(SCENE_WATER_TANK1_TO_TANK2, destination);
             break;
     }
-#endif
+    return 0;
 }
 
 
 static inline void main_opr()
 {
     static unsigned char active_button = 0;
+    static char param_lock = 1; /* 0: param changing allowed
+                                   1:param changing forbidened 
+                                   default active_button forbiden param changing
+                                */
     static unsigned int destination; /* operation destination
                                       * SCENE_NORMAL: useless
                                       * SCENE_WATER_TANK1_TO_TANK2: how many lites to add
@@ -481,13 +458,16 @@ static inline void main_opr()
                                       * SCENE_WATER_TANK2_TO_TANK1: how many lites to add
                                       */
     char status_need_update = 0;
-    char modified_type = MODIFIED_NONE;    /* 0:not changed 1:param modified 2:mod changed */
+    
+    static UINT32 param_mod_time = 0;
         /* poll & display key info */
     if(button>=0){
         switch(button){
             case 0:             /* screen press */
                 break;
             case 1:             /* change setting */
+                if((param_lock)) 
+                    return 0;   /* ignore button 1 input*/
                 switch(active_button){
                     case 2:             /* keep warm */
                             /* warm tank1/tank2 warming */
@@ -514,48 +494,70 @@ static inline void main_opr()
                             /* change Lites to add */
                         break;
                 }
-                modified_type = MODIFIED_PARAM;
+                param_mod_time = sys_run_seconds();
                 status_need_update = 1;
                 break;
             case 2:             /* keep warm */
                 destination = 4;
                 status_need_update = 1;
+                scene_reset();
+                param_mod_time = sys_run_seconds();
                 break;
             case 3:             /* heat tank1 */
                 destination = 35;
                 status_need_update = 1;
+                scene_reset();
+                param_mod_time = sys_run_seconds();
                 break;
             case 4:             /* tank2->tank1 */
                 destination = 30;
                 status_need_update = 1;
+                scene_reset();
+                param_mod_time = sys_run_seconds();
                 break;
             case 5:             /* tank1->tank2 */
                 destination = 30;
                 status_need_update = 1;
+                scene_reset();
+                param_mod_time = sys_run_seconds();
                 break;
         }
         if(button>=2 && button <= 5){
+            button_blink(active_button, 0); /* stop blinking */
             if(active_button == button){
                     /* disable the function */
-                button_blink(active_button, 0); /* stop blinking */
+                param_lock = 1; /* scene 0 need not param setting */
                 active_button = 0;
-                modified_type = MODIFIED_MODE;
+                scene_reset();
+                param_mod_time = sys_run_seconds();
             }else{
-                button_blink(active_button, 0); /* stop blinking */
+                param_lock = 0;
                 active_button = button;
-                modified_type = MODIFIED_MODE;
+                param_mod_time = sys_run_seconds();
             }
         }
         if((status_need_update))
-            ui_mode_update(active_button, destination);
+            ui_mode_setting_show(active_button, destination);
             /* clr button value */
         button = -1;
     }
 
-        /* button blink */
+    /* button blink */
     button_blink(active_button, 1); /* blinking current button */
-
-    operation_loop(modified_type, active_button, destination);
+    
+    if(sys_run_seconds() - param_mod_time < 5){
+        static last_diff = 0xff;
+        if(sys_run_seconds() - param_mod_time != last_diff){
+            char *time_buf = "0秒后开始工作";
+            time_buf[0] = '0' + (5 - (sys_run_seconds() - param_mod_time));
+            ui_working_info_update(time_buf);
+            last_diff = sys_run_seconds() - param_mod_time;
+        }
+        ui_working_info_show();
+        return;
+    }
+    param_lock = 1;
+    operation_loop(active_button, destination);
     ui_working_info_show();
 }
 

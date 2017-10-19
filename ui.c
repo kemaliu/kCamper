@@ -4,7 +4,7 @@
 #define NO_OFFSET
 void setup_button_enable(char enable)
 {
-#if 1
+#if 0
     static char enabled = 1;
     
     if((enable) &&  !enabled){
@@ -19,8 +19,7 @@ void setup_button_enable(char enable)
     if(!enable &&  (enabled)){
         enabled = 0;
 #ifdef NO_OFFSET
-        /* screen_const_puts("BTN(1,180,95,180,95,4);BOXF(180,95,239,125,0);\n"); */
-        screen_const_puts("BTN(1,0,0,0,0,0);BOXF(180,95,239,125,0);\n");
+        screen_const_puts("BTN(1,180,95,180,95,4);BOXF(180,95,239,125,0);\n");
 #else
         screen_const_puts(AREA_1_START);
         screen_const_puts("BTN(1,180,5,180,5,4);BOXF(180,5,239,35,0);;SXY(0,0);\n");
@@ -28,6 +27,17 @@ void setup_button_enable(char enable)
     }
 #endif                                                        
 }
+
+
+void pump_status_show(char status)
+{
+#ifdef NO_OFFSET
+
+#else
+    
+#endif
+}
+
 
 void draw_main_page()
 {
@@ -48,7 +58,8 @@ void draw_main_page()
     screen_const_puts(AREA_1_START);
     screen_const_puts("BOXF(0,0,329,3,2);DS16(1,17,'模式:',2,0);");
     screen_const_puts("LABL(24,40,9,179,'正常用水',1,0);");
-    screen_const_puts("BTN(1,180,5,239,35,4);LABL(24,181,9,238,'设置',15,1);SXY(0,0);");
+    screen_const_puts("BTN(1,0,0,239,120,0);");
+    screen_const_puts("SXY(0,0);");
     
     screen_const_puts(AREA_2_START);
     screen_const_puts("BOXF(0,0,319,3,2);");
