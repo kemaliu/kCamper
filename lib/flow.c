@@ -18,7 +18,7 @@ struct flow_info{
     UINT32 start_time;
     UINT32 last_time;
     UINT32 speed;
-}__info[FLOW_NUM] = {0};
+}__info[FLOW_NUM];
 
 static UINT8 last_pinc = 3;
 SIGNAL(PCINT1_vect)

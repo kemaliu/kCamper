@@ -14,5 +14,6 @@
 
 void setup_button_enable(char enable);
 void draw_main_page();
+void pump_status_show(char status);
 
 #endif  /* #ifndef __UI_H__ */

@@ -99,9 +99,9 @@ unsigned char __scene_cfg[SCENE_TOTAL_NUM] = {
     SWITCH_MASK_PUMP | SWITCH_MASK_MAIN | SWITCH_MASK_TANK1, /* tank2 loop */
 };
 
-void valve_setup(char scene)
+void valve_setup(UINT8 scene)
 {
-    unsigned char cfg = __scene_cfg[scene];
+    UINT8 cfg = __scene_cfg[scene];
     screen_const_puts("LABL(16,175,116,239,'进水:");
     if(cfg & SWITCH_MASK_MAIN){
         screen_const_puts("2");
@@ -389,7 +389,7 @@ void scene_reset()
 #define STEP2_START_TIME 1
 #define STEP3_START_TIME 6
 #define STEP4_START_TIME
-int scene_process(char scene, char dest)
+int scene_process(UINT8 scene, char dest)
 {
     char buf[32];
     UINT32 val;
@@ -440,6 +440,7 @@ int scene_process(char scene, char dest)
                 break;
         }
     }
+    return 0;
 }
 
 
@@ -493,7 +494,7 @@ static inline void main_opr()
                 break;
             case 1:             /* change setting */
                 if((param_lock)) 
-                    return 0;   /* ignore button 1 input*/
+                    return;   /* ignore button 1 input*/
                 switch(active_button){
                     case 2:             /* keep warm */
                             /* warm tank1/tank2 warming */
@@ -572,7 +573,7 @@ static inline void main_opr()
     button_blink(active_button, 1); /* blinking current button */
     
     if(sys_run_seconds() - param_mod_time < 5){
-        static last_diff = 0xff;
+        static char last_diff = 10;
         if(sys_run_seconds() - param_mod_time != last_diff){
             char *time_buf = "0秒后开始工作";
             time_buf[0] = '0' + (5 - (sys_run_seconds() - param_mod_time));
