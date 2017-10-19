@@ -1,12 +1,12 @@
 /*
  *
  * TANK2---------temp_tank2--->pump2------flow_tank2--|
- *                                                    +--switch main------+                 +---switch2---->TANK2
- *                                                    |                   |                 |                 
- * TANK1-----+--temp_tank1--->pump1------flow_tank1---|                   |                 |
- *                                                                        |                 +---switch1---->TANK1
- *                                                                        |                 |
- *                                                                   large pump---->HEATER--+------->normal usage
+ *                                                    +--switch main                 +---switch2---->TANK2
+ *                                                    |            |                  |                 
+ * TANK1-----+--temp_tank1--->pump1------flow_tank1---|            |                  |
+ *                                                                 |                  +---switch1---->TANK1
+ *                                                                 |                  |
+ *                                                                 ---main pump---->HEATER-------->normal usage
  *
  * 制冷液----------temp_hot
  *
@@ -57,6 +57,7 @@
 #include "lib/timer.h"
 #include "lib/flow.h"
 #include "lib/kconfig.h"
+#include "ui.h"
 #include "lib/ds18b20_simple_fix.h"
 #include <util/delay.h>
 #include <avr/interrupt.h>
@@ -150,10 +151,10 @@ void ui_temp_update(unsigned char index)
 {
     screen_cmd_printf("CELS(24,%d,1,'", TEMPERATURE_SENSOR_TANK1==index?1:2);
     if(temperature[index] <= -1000)
-        screen_cmd_puts("NA");
+        screen_const_puts("NA");
     else
         screen_cmd_puts(int_to_float_str(temperature[index], 16));
-    screen_cmd_puts("',15,0,1);\n");
+    screen_const_puts("',15,0,1);\n");
 }
 
 void temp_update()
@@ -194,17 +195,17 @@ void flow_speed_update()
     
     speed = flow_cnt_speed(FLOW_TANK1_OUT);
     if(speed != old_speed[FLOW_TANK1_OUT]){
-        screen_cmd_printf("CELS(24,1,2,'");
+        screen_const_puts("CELS(24,1,2,'");
         screen_cmd_puts(int_to_float_str(speed, 1071));
-        screen_cmd_puts("',15,0,1);\n");
+        screen_const_puts("',15,0,1);\n");
         old_speed[FLOW_TANK1_OUT] = speed;
     }
 
     speed = flow_cnt_speed(FLOW_TANK2_OUT);
     if(speed != old_speed[FLOW_TANK2_OUT]){
-        screen_cmd_printf("CELS(24,2,2,'");
+        screen_const_puts("CELS(24,2,2,'");
         screen_cmd_puts(int_to_float_str(speed, 1071));
-        screen_cmd_puts("',15,0,1);\n");
+        screen_const_puts("',15,0,1);\n");
         old_speed[FLOW_TANK2_OUT] = speed;
     }
     
@@ -248,34 +249,35 @@ void uartRcv(uint8 c)
 
 void ui_status_update(char * mode_str, char * status_str)
 {
-    screen_cmd_puts("SXY(0,90);");
+    screen_const_puts(AREA_1_START);
         /* update data mode */
-    screen_cmd_puts("LABL(24,40,9,179,'");
+    screen_const_puts("LABL(24,40,9,179,'");
     screen_cmd_puts(mode_str);
-    screen_cmd_puts("',4,0);");
+    screen_const_puts("',4,0);");
         /* update status */
-    screen_cmd_puts("LABL(24,0,50,239,'");
+    screen_const_puts("LABL(24,0,50,239,'");
     screen_cmd_puts(status_str);
-    screen_cmd_puts("',2,0);"); /* red, left align */
-    screen_cmd_puts("SXY(0,0);\n");
+    screen_const_puts("',2,0);"); /* red, left align */
+    screen_const_puts("SXY(0,0);\n");
 }
 static char working_info[32];
 static char working_info_pending = 0;
 void ui_working_info_show()
 {
     if((working_info_pending)){
-        screen_cmd_puts("SXY(0,90);");
+        screen_const_puts(AREA_1_START);
             /* update data mode */
-        screen_cmd_puts("LABL(24,0,80,239,'");
+        screen_const_puts("LABL(24,0,80,239,'");
         screen_cmd_puts(working_info);
-        screen_cmd_puts("',15,0);SXY(0,0);\n");
+        screen_const_puts("',15,0);SXY(0,0);\n");
         working_info_pending = 0;
     }
 }
 
 void ui_working_info_update(char * str)
 {
-    strncpy(working_info, str, 32);
+    memcpy(working_info, str, 31);
+    working_info[31] = 0;
     working_info_pending = 1;
 }
 
@@ -313,14 +315,14 @@ void ui_mode_update(char button, char destination)
 
 void button_blink(int button, int blink)
 {
-    char * fmt = "SXY(0,210);LABL(24,%d,%d,%d,'%s',%d,1);SXY(0,0);\n";
+    char * fmt = AREA_2_START"LABL(24,%d,%d,%d,'%s',%d,1);SXY(0,0);\n";
     static UINT32 last_time = 0;
     static char color = 1;
     if(!blink){
         color = 15;
         goto do_update;
     }
-    if(time_diff_ms(last_time) > 500){
+    if(time_diff_ms(last_time) > 1000){
         last_time = timebase_get();
         color = (color==1)?2:1;
         goto do_update;
@@ -329,16 +331,16 @@ void button_blink(int button, int blink)
   do_update:
     switch(button){
         case 2:             /* keep warm */
-            screen_cmd_printf(fmt,2,17,118,"自动保温",color);
+            screen_cmd_printf(fmt,2,17,118,BUTTON2_CONTENT,color);
             break;
         case 3:             /* heat tank1 */
-            screen_cmd_printf(fmt,122,17,238,"水箱加热",color);
+            screen_cmd_printf(fmt,122,17,238,BUTTON3_CONTENT,color);
             break;
         case 4:             /* tank2->tank1 */
-            screen_cmd_printf(fmt,2,67,118,"主箱加水",color);
+            screen_cmd_printf(fmt,2,67,118,BUTTON4_CONTENT,color);
             break;
         case 5:             /* tank1->tank2 */
-            screen_cmd_printf(fmt,122,67,238,"副箱加水",color);
+            screen_cmd_printf(fmt,122,67,238,BUTTON5_CONTENT,color);
             break;
     }
 }
@@ -358,6 +360,10 @@ void scene_reset()
 #define scene_time() ((UINT32)(sys_run_seconds() - scene_start_time))
 
 /* return 0:processing 1:end */
+#define STEP1_START_TIME
+#define STEP2_START_TIME 1
+#define STEP3_START_TIME 6
+#define STEP4_START_TIME
 int scene_process(char scene, char dest)
 {
     char buf[32];
@@ -369,11 +375,11 @@ int scene_process(char scene, char dest)
             /* stop pump */
         pump_enable(PUMP_OFF);
         ui_working_info_update("停泵");
-    }else if(scene_step==1 && scene_time()>3){
+    }else if(scene_step==1 && scene_time()>STEP2_START_TIME){
         valve_setup(SCENE_NORMAL);
         scene_step=2;
         ui_working_info_update("设置阀门");
-    }else if(scene_step==2 && scene_time()>10){
+    }else if(scene_step==2 && scene_time()>STEP3_START_TIME){
         if(scene == SCENE_NORMAL){
             pump_enable(PUMP_HIGH_POWER);
             ui_working_info_update("开泵(高功率)");
@@ -419,19 +425,27 @@ int scene_process(char scene, char dest)
 
 char operation_loop(char mod_status, char button, char destination)
 {
-    static UINT32 mod_entry_time;
     static UINT32 param_mod_time;
     char scene_ret;
+    char *time_buf = "0秒后开始工作";
+    static last_diff = 0xff;
     if(mod_status == MODIFIED_MODE){
-        param_mod_time = mod_entry_time = sys_run_seconds();
+        setup_button_enable(1);
+        scene_reset();
+        param_mod_time = sys_run_seconds();
     }else if(mod_status == MODIFIED_PARAM){
         param_mod_time = sys_run_seconds();
     }
-    if(sys_run_seconds() - param_mod_time < 10 || sys_run_seconds() - mod_entry_time < 10){
+    if(sys_run_seconds() - param_mod_time < 5){
             /* wait 10 seconds to make sure user input stable */
-        ui_working_info_update("start in 10sec");
+        if(sys_run_seconds() - param_mod_time != last_diff){
+            time_buf[0] = '0' + (5 - (sys_run_seconds() - param_mod_time));
+            ui_working_info_update(time_buf);
+        }
         return NULL;
     }
+#if 1
+    setup_button_enable(0);
         /* user input stable, now we can operation */
     switch(button){
         case 0:
@@ -452,6 +466,7 @@ char operation_loop(char mod_status, char button, char destination)
             scene_ret = scene_process(SCENE_WATER_TANK1_TO_TANK2, destination);
             break;
     }
+#endif
 }
 
 
@@ -546,25 +561,6 @@ static inline void main_opr()
 
 
 
-static char main_ui_cmd[] = "DR3;"
-"TPN(2);"
-"CLS(0);"
-"TABL(0,0,79,30,3,3,19);"
-"CELS(24,0,0,'',15,0,1);"
-"CELS(24,0,1,'温度',2,0,1);"
-"CELS(24,0,2,'流速',2,0,1);"
-"CELS(24,1,0,'主水箱',2,0,1);"
-"CELS(24,1,1,'',2,0,1);"
-"CELS(24,1,2,'',2,0,1);"
-"CELS(24,2,0,'副水箱',2,0,1);"
-"CELS(24,2,1,'',2,0,1);"
-"CELS(24,2,2,'',2,0,1);"
-"SBC(0);"
-"SXY(0,90);BOXF(0,0,329,3,2);DS16(1,17,'模式:',2,0);LABL(24,40,9,179,'正常用水',1,0);BTN(1,180,5,239,35,4);LABL(24,181,9,238,'设置',15,1);SXY(0,0);"
-    "SXY(0,210);BOXF(0,0,319,3,2);BTN(2,0,10,119,50,4);LABL(24,2,17,118,'自动保温',15,1);BTN(3,120,10,239,50,4);LABL(24,122,17,238,'水箱加热',15,1);BTN(4,0,60,119,100,4);LABL(24,2,67,118,'主箱加水',15,1);BTN(5,120,60,239,100,4);LABL(24,122,67,238,'副箱加水',15,1);SXY(0,0);\r\n";
-
-
-
 int main()
 {
         /* init uart */
@@ -575,12 +571,12 @@ int main()
     ds_init();
         /* init flow ctrl */
     flow_init();
-    screen_cmd_puts("SPG(1);\n"); /* display main page */    
+    screen_const_puts("SPG(1);\n"); /* display main page */    
     _delay_ms(300);               /* wait 100ms for main page drawing */
-    screen_cmd_puts(main_ui_cmd);
-    _delay_ms(2000);               /* wait 100ms for main page drawing */
+    draw_main_page();
+
 #if 0
-    screen_cmd_puts("TERM;\n"); /* display main page */
+    screen_const_puts("TERM;\n"); /* display main page */
 #endif
     while(1){
         temp_update();
@@ -591,4 +587,4 @@ int main()
 }
 
 
-
+char realTimeFmtBuf[32];

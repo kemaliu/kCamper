@@ -68,7 +68,8 @@ UINT32 flow_cnt(FLOW_CTRL_T index)
 /* return speed (cnt inc number)/1min  */
 UINT32 flow_cnt_speed(FLOW_CTRL_T index)
 {
-
+    if(index > FLOW_TANK2_OUT || index < FLOW_TANK1_OUT)
+        return 0;
     if(time_diff_ms(__info[index].last_time) < 100){
         printf(".");
         return __info[index].speed;
