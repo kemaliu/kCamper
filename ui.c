@@ -48,5 +48,6 @@ void draw_main_page()
     screen_const_puts("BTN(4,0,60,119,100,4);LABL(24,2,67,118,'"BUTTON4_CONTENT"',15,1);");
     screen_const_puts("BTN(5,120,60,239,100,4);LABL(24,122,67,238,'"BUTTON5_CONTENT"',15,1);");
     screen_const_puts("SXY(0,0);\r\n");
+    _delay_ms(2000);               /* wait 100ms for main page drawing */
 }
 

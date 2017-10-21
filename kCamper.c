@@ -113,8 +113,8 @@ unsigned char __scene_cfg[SCENE_TOTAL_NUM] = {
 #define VALVE_2_INDEX 0
 
 
-static UINT32 valve_setup_time = 0xf;
-static unsigned char valve_status;
+static UINT32 valve_mod_time = 0x0;
+static unsigned char valve_status = 0xf;
 
 void valve_init()
 {
@@ -136,7 +136,7 @@ void valve_power_down()
 
 void valve_check()
 {
-    if(sys_run_seconds() - valve_setup_time > 5){
+    if(sys_run_seconds() - valve_mod_time > 5){
             /* poweroff all the valve */
         valve_power_down();
     }
@@ -149,8 +149,8 @@ void valve_setup(UINT8 scene)
     if((cfg & 0xf) == valve_status){
         return;
     }
-    
-    valve_setup_time = sys_run_seconds();
+    valve_mod_time = sys_run_seconds();
+    valve_status = cfg & 0xf;
     
     screen_const_puts("LABL(16,175,116,239,'½øË®:");
     if(cfg & VALVE_INPUT_TANK2){
@@ -673,7 +673,6 @@ int main()
     _delay_ms(300);               /* wait 100ms for main page drawing */
     draw_main_page();
     valve_init();
-
 #if 0
     screen_const_puts("TERM;\n"); /* display main page */
 #endif
