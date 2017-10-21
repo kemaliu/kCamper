@@ -8,7 +8,9 @@ void pump_mode_show(char mode)
 {
 #ifdef NO_OFFSET
     screen_const_puts("LABL(16,175,99,239,'泵:");
-    if(mode == 1)
+    if(mode == 0)
+        screen_const_puts("关闭");
+    else if(mode == 2)
         screen_const_puts("全速");
     else
         screen_const_puts("低速");

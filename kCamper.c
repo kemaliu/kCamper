@@ -36,6 +36,7 @@
  *   flow_tank2_out:PC4(PCINT12)
  *   
  *   pump low: PD2
+ *   pump low output: PD3
  *   valve_power: PD5, enable during valve setup
  *   valve main: PD6
  *   valve 1: PD7
@@ -185,7 +186,8 @@ void valve_setup(UINT8 scene)
     gpio_output(VALVE_POWER_GRP, VALVE_POWER_INDEX, VALVE_ON);
 }
 enum{
-    PUMP_LOW_SPEED = 0,
+    PUMP_OFF = 0,
+    PUMP_LOW_SPEED,
     PUMP_FULL_SPEED
 };
 
@@ -193,13 +195,32 @@ enum{
 void pump_init()
 {
         /* pump control bit PC5 */
-    pump_speed_set(PUMP_FULL_SPEED);
+    pump_mode_set(PUMP_FULL_SPEED);
 }
 /* PUMP_LOW_SPEED:low speed PUMP_FULL_SPEED:full speed */
-void pump_speed_set(char mode)
+void pump_mode_set(char mode)
 {
+        /* PD2 1:12V ------- pump
+         *     0:12V ------- DC-DC 12->5v
+         * PD3 1:5v output disable
+         *     0:5v output enable
+         */   
+    switch(mode){
+        case PUMP_OFF:
+            gpio_output(GPIO_GROUP_D, 2, 0);
+            gpio_output(GPIO_GROUP_D, 3, 1);
+            break;
+        case PUMP_LOW_SPEED:
+            gpio_output(GPIO_GROUP_D, 2, 0);
+            gpio_output(GPIO_GROUP_D, 3, 0);
+            break;
+        case PUMP_FULL_SPEED:
+            gpio_output(GPIO_GROUP_D, 2, 1);
+            gpio_output(GPIO_GROUP_D, 3, 1);
+            break;
+    }
     if(mode == PUMP_FULL_SPEED){
-        gpio_output(GPIO_GROUP_D, 2, 1);
+        
     }else{
         gpio_output(GPIO_GROUP_D, 2, 0);
     }
@@ -254,22 +275,31 @@ void ui_temp_update(unsigned char index)
 void temp_update()
 {
     static UINT32 last_sample_time = 0;
-    static short old_temperature[TEMPERATURE_SENSOR_MAX_NUM] = {-1000, -1000, -1000};
+    static short old_temperature[TEMPERATURE_SENSOR_MAX_NUM] = {-1009, -1009, -1009};
+    static int sample_ret[TEMPERATURE_SENSOR_MAX_NUM];
     if(!last_sample_time){
             /* do sample */
         last_sample_time = timebase_get();
-        temperature[TEMPERATURE_SENSOR_TANK1] = ds_get_temperature_sample(TEMPERATURE_SENSOR_TANK1);
-        temperature[TEMPERATURE_SENSOR_TANK2] = ds_get_temperature_sample(TEMPERATURE_SENSOR_TANK2);
-        temperature[TEMPERATURE_SENSOR_HEATER] = ds_get_temperature_sample(TEMPERATURE_SENSOR_HEATER);
+        sample_ret[TEMPERATURE_SENSOR_TANK1] = ds_get_temperature_sample(TEMPERATURE_SENSOR_TANK1);
+        sample_ret[TEMPERATURE_SENSOR_TANK2] = ds_get_temperature_sample(TEMPERATURE_SENSOR_TANK2);
+        sample_ret[TEMPERATURE_SENSOR_HEATER] = ds_get_temperature_sample(TEMPERATURE_SENSOR_HEATER);
     }else{
         if(time_diff_ms(last_sample_time) <= 2000) /* sample need wait 2 seconds */
             return;
-        if(!temperature[TEMPERATURE_SENSOR_TANK1]) /* start sample return OK */
+        if(!sample_ret[TEMPERATURE_SENSOR_TANK1]) /* start sample return OK */
             temperature[TEMPERATURE_SENSOR_TANK1] = ds_get_temperature_read(TEMPERATURE_SENSOR_TANK1);
-        if(!temperature[TEMPERATURE_SENSOR_TANK2]) /* start sample return OK */
+        else
+            temperature[TEMPERATURE_SENSOR_TANK1] = -1000;
+        if(!sample_ret[TEMPERATURE_SENSOR_TANK2]) /* start sample return OK */
             temperature[TEMPERATURE_SENSOR_TANK2] = ds_get_temperature_read(TEMPERATURE_SENSOR_TANK2);
-        if(!temperature[TEMPERATURE_SENSOR_HEATER]) /* start sample return OK */
+        else
+            temperature[TEMPERATURE_SENSOR_TANK2] = -1000;
+        
+        if(!sample_ret[TEMPERATURE_SENSOR_HEATER]) /* start sample return OK */
             temperature[TEMPERATURE_SENSOR_HEATER] = ds_get_temperature_read(TEMPERATURE_SENSOR_HEATER);
+        else
+            temperature[TEMPERATURE_SENSOR_HEATER] = -1000;
+        
         if(old_temperature[TEMPERATURE_SENSOR_TANK1] != temperature[TEMPERATURE_SENSOR_TANK1]){
             ui_temp_update(TEMPERATURE_SENSOR_TANK1);
             old_temperature[TEMPERATURE_SENSOR_TANK1] = temperature[TEMPERATURE_SENSOR_TANK1];
@@ -354,15 +384,19 @@ void ui_status_update(char * mode_str, char * status_str)
     screen_const_puts("',2,0);"); /* red, left align */
     screen_const_puts("SXY(0,0);\n");
 }
-static char working_info[32];
+static char working_info[48];
+static char working_info1[48];
 static char working_info_pending = 0;
 void ui_working_info_show()
 {
     if((working_info_pending)){
         screen_const_puts(AREA_1_START);
             /* update data mode */
-        screen_const_puts("LABL(24,0,80,180,'");
+        screen_const_puts("LABL(16,0,80,180,'");
         screen_cmd_puts(working_info);
+        screen_const_puts("',15,0);");
+        screen_const_puts("LABL(16,0,100,180,'");
+        screen_cmd_puts(working_info1);
         screen_const_puts("',15,0);SXY(0,0);\n");
         working_info_pending = 0;
     }
@@ -370,8 +404,13 @@ void ui_working_info_show()
 
 void ui_working_info_update(char * str)
 {
-    memcpy(working_info, str, 31);
-    working_info[31] = 0;
+    strncpy(working_info, str, 48);
+    working_info1[0] = 0;
+    working_info_pending = 1;
+}
+
+void ui_working_info_pending()
+{
     working_info_pending = 1;
 }
 
@@ -458,23 +497,21 @@ void scene_reset()
 #define STEP3_START_TIME 5
 int scene_process(UINT8 scene, char dest)
 {
-    char buf[32];
-    UINT32 val;
-    static UINT32 old_val = 0xffffffff;
+
     if(!scene_step){
         scene_start_time = sys_run_seconds();
         scene_step = 1;
             /* stop pump */
-        pump_speed_set(PUMP_LOW_SPEED);
+        pump_mode_set(PUMP_LOW_SPEED);
         valve_setup(scene);
         ui_working_info_update("设置阀门");
     }else if(scene_step==1 && scene_time()>STEP2_START_TIME){
         scene_step=2;
         if(scene == SCENE_NORMAL){
-            pump_speed_set(PUMP_FULL_SPEED);
+            pump_mode_set(PUMP_FULL_SPEED);
             ui_working_info_update("开泵(全速)");
         }else{
-            pump_speed_set(PUMP_LOW_SPEED);
+            pump_mode_set(PUMP_LOW_SPEED);
             ui_working_info_update("开泵(低速)");
         }
         if(scene == SCENE_WATER_TANK1_TO_TANK2)
@@ -484,39 +521,124 @@ int scene_process(UINT8 scene, char dest)
     }else if(scene_step==2 && scene_time()>STEP3_START_TIME){
         scene_step = 3;
     }else if(scene_step == 3){
-            /* wait to reach destination */
-        switch(scene){
-            case SCENE_NORMAL:
-                return 0;
-            case SCENE_WATER_TANK1_TO_TANK2:
-                break;
-            case SCENE_WATER_TANK1_LOOP:
+        /*     /\* wait to reach destination *\/ */
+        /* switch(scene){ */
+        /*     case SCENE_NORMAL: */
+        /*         break; */
+        /*     case SCENE_WATER_TANK1_TO_TANK2: */
+        /*         break; */
+        /*     case SCENE_WATER_TANK1_LOOP: */
                 
-                break;
-            case SCENE_WATER_TANK2_LOOP:
+        /*         break; */
+        /*     case SCENE_WATER_TANK2_LOOP: */
                 
-                break;
-            case SCENE_WATER_TANK2_TO_TANK1:
-                val = flow_cnt(FLOW_TANK1_OUT);
-                if(val != old_val){
-                    sprintf(buf,"已加:%sL", int_to_float_str(val, 1071));
-                    ui_working_info_update(buf);
-                    old_val = val;
-                }
-                break;
-        }
+        /*         break; */
+        /*     case SCENE_WATER_TANK2_TO_TANK1: */
+        /*         val = flow_cnt(FLOW_TANK1_OUT); */
+        /*         if(val != old_val){ */
+        /*             sprintf(buf,"已加:%sL", int_to_float_str(val, 1071)); */
+        /*             ui_working_info_update(buf); */
+        /*             old_val = val; */
+        /*         } */
+        /*         break; */
+        /* } */
     }
-    return 0;
+    return scene_step;
 }
 
 
-char operation_loop(char button, char destination)
+char activebutton_process(char button, char destination)
 {
     char scene_ret;
+    char buf[48];
+    UINT32 val;
+    static UINT32 old_val = 0xffffffff;
     switch(button){
         case 0:
             scene_ret = scene_process(SCENE_NORMAL, destination);
+            break;
         case 2:                 /* keep warm */
+            {
+#define TANK1_WARM_INTERVAL 1800 /* 30min */
+#define TANK2_WARM_INTERVAL 600 /* 10min */
+                static UINT32 tank_warm_end_time[2] = {100000, 100000};
+                static UINT32 tank_warm_start_time = 0;
+                static char runing_flag = 0;
+                static unsigned char repeat = 0;
+                if(sys_run_seconds() - tank_warm_end_time[0] > TANK1_WARM_INTERVAL){
+                    if(!runing_flag){
+                        scene_reset();
+                        tank_warm_start_time = sys_run_seconds();
+                        runing_flag = 1;
+                        repeat = 0;
+                        old_val = 0;
+                    }
+                        /* do tank1 loop */
+                    scene_ret = scene_process(SCENE_WATER_TANK1_LOOP, destination);
+
+                    if(scene_ret >= 3){
+                        if(sys_run_seconds() - tank_warm_start_time > old_val){
+                            old_val = sys_run_seconds() - tank_warm_start_time;
+                            sprintf(working_info,"主水箱保温,运行%lu秒", old_val);
+                            sprintf(working_info1,"达标计数:%d/50,%d/%d", repeat, temperature[TEMPERATURE_SENSOR_TANK1]/16, destination);
+                            ui_working_info_pending();
+                        }
+                        if(sys_run_seconds() - tank_warm_start_time > 30){
+                            if(temperature[TEMPERATURE_SENSOR_TANK1]/16 >= destination){
+                                repeat++;
+                            }else{
+                                repeat = 0;
+                            }
+                            if(repeat >= 50){
+                                    /* warm done, power off pump */
+                                pump_mode_set(PUMP_OFF);
+                                    /* update tank1 warm end time */
+                                tank_warm_end_time[0] = sys_run_seconds();
+                                runing_flag = 0;
+                            }
+                        }
+                    }
+                }else if(sys_run_seconds() - tank_warm_end_time[1] > TANK2_WARM_INTERVAL){
+                    if(!runing_flag){
+                        scene_reset();
+                        tank_warm_start_time = sys_run_seconds();
+                        runing_flag = 1;
+                        repeat = 0;
+                        old_val = 0;
+                    }
+                        /* do tank1 loop */
+                    scene_ret = scene_process(SCENE_WATER_TANK2_LOOP, destination);
+                    if(scene_ret >= 3){
+                        if(sys_run_seconds() - tank_warm_start_time > old_val){
+                            old_val = sys_run_seconds() - tank_warm_start_time;
+                            sprintf(working_info,"副水箱保温,运行%lu秒", old_val);
+                            sprintf(working_info1,"达标计数:%d/50,%d/%d", repeat, temperature[TEMPERATURE_SENSOR_TANK2]/16, destination);
+                            ui_working_info_pending();
+                        }
+                        if(sys_run_seconds() - tank_warm_start_time > 30){
+                            if(temperature[TEMPERATURE_SENSOR_TANK2]/16 >= destination){
+                                repeat++;
+                            }else{
+                                repeat = 0;
+                            }
+                            if(repeat >= 50){
+                                    /* warm done, power off pump */
+                                pump_mode_set(PUMP_OFF);
+                                    /* update tank1 warm end time */
+                                tank_warm_end_time[1] = sys_run_seconds();
+                                runing_flag = 0;
+                            }
+                        }                    
+                    }
+                }else{
+                    pump_mode_set(PUMP_OFF);
+                    if(old_val != sys_run_seconds()){
+                        sprintf(working_info,"主水箱%lu秒运行", TANK1_WARM_INTERVAL - (sys_run_seconds() - tank_warm_end_time[0]));
+                        sprintf(working_info1,"副水箱%lu秒运行", TANK2_WARM_INTERVAL - (sys_run_seconds() - tank_warm_end_time[1]));
+                        ui_working_info_pending();
+                    } 
+                }
+            }
                 /* loop SCENE_WATER_TANK1_LOOP &  SCENE_WATER_TANK2_LOOP; */
             break;
         case 3:
@@ -526,6 +648,16 @@ char operation_loop(char button, char destination)
         case 4:
                 /* tank2->tank1 */
             scene_ret = scene_process(SCENE_WATER_TANK2_TO_TANK1, destination);
+            if(scene_ret >= 3){
+                    /* update working info */
+                val = flow_cnt(FLOW_TANK1_OUT);
+                if(val != old_val){
+                    sprintf(buf,"已加:%sL", int_to_float_str(val, 1071));
+                    ui_working_info_update(buf);
+                    old_val = val;
+                }
+            }
+            
             break;
         case 5:
                 /* tank1->tank2 */
@@ -650,7 +782,7 @@ static inline void main_opr()
         return;
     }
     param_lock = 1;
-    operation_loop(active_button, destination);
+    activebutton_process(active_button, destination);
     ui_working_info_show();
 }
 
