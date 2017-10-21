@@ -8,7 +8,7 @@ void pump_mode_show(char mode)
 {
 #ifdef NO_OFFSET
     screen_const_puts("LABL(16,175,99,239,'±Ã:");
-    if(mode == 0)
+    if(mode == 1)
         screen_const_puts("È«ËÙ");
     else
         screen_const_puts("µÍËÙ");

@@ -35,7 +35,7 @@
  *   flow_tank1_out:PC3(PCINT11)
  *   flow_tank2_out:PC4(PCINT12)
  *   
- *   pump low: PC5
+ *   pump low: PD2
  *   valve_power: PD5, enable during valve setup
  *   valve main: PD6
  *   valve 1: PD7
@@ -193,15 +193,15 @@ enum{
 void pump_init()
 {
         /* pump control bit PC5 */
-    gpio_output(GPIO_GROUP_C, 5, 1);
+    pump_speed_set(PUMP_FULL_SPEED);
 }
 /* PUMP_LOW_SPEED:low speed PUMP_FULL_SPEED:full speed */
 void pump_speed_set(char mode)
 {
     if(mode == PUMP_FULL_SPEED){
-        gpio_output(GPIO_GROUP_C, 5, 1);
+        gpio_output(GPIO_GROUP_D, 2, 1);
     }else{
-        gpio_output(GPIO_GROUP_C, 5, 0);
+        gpio_output(GPIO_GROUP_D, 2, 0);
     }
     pump_mode_show(mode);
 }
@@ -453,10 +453,9 @@ void scene_reset()
 #define scene_time() ((UINT32)(sys_run_seconds() - scene_start_time))
 
 /* return 0:processing 1:end */
-#define STEP1_START_TIME
-#define STEP2_START_TIME 1
-#define STEP3_START_TIME 6
-#define STEP4_START_TIME
+#define STEP1_START_TIME 0
+#define STEP2_START_TIME 5
+#define STEP3_START_TIME 5
 int scene_process(UINT8 scene, char dest)
 {
     char buf[32];
@@ -467,12 +466,10 @@ int scene_process(UINT8 scene, char dest)
         scene_step = 1;
             /* stop pump */
         pump_speed_set(PUMP_LOW_SPEED);
-        ui_working_info_update("停泵");
-    }else if(scene_step==1 && scene_time()>STEP2_START_TIME){
         valve_setup(scene);
-        scene_step=2;
         ui_working_info_update("设置阀门");
-    }else if(scene_step==2 && scene_time()>STEP3_START_TIME){
+    }else if(scene_step==1 && scene_time()>STEP2_START_TIME){
+        scene_step=2;
         if(scene == SCENE_NORMAL){
             pump_speed_set(PUMP_FULL_SPEED);
             ui_working_info_update("开泵(全速)");
@@ -484,6 +481,7 @@ int scene_process(UINT8 scene, char dest)
             flow_reset(FLOW_TANK2_OUT);
         if(scene == SCENE_WATER_TANK2_TO_TANK1)
             flow_reset(FLOW_TANK1_OUT);
+    }else if(scene_step==2 && scene_time()>STEP3_START_TIME){
         scene_step = 3;
     }else if(scene_step == 3){
             /* wait to reach destination */
