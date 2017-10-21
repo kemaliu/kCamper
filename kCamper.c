@@ -35,20 +35,20 @@
  *   flow_tank1_out:PC3(PCINT11)
  *   flow_tank2_out:PC4(PCINT12)
  *   
- *   switch main: PC5
- *   switch 1: PD3
- *   switch 2: PD4
- *   pump 1: PD6
- *   pump 2: PD7
+ *   pump low: PC5
+ *   valve_power: PD5, enable during valve setup
+ *   valve main: PD6
+ *   valve 1: PD7
+ *   valve 2: PB0
  *
  *  scene:
- *                   | bit5   |  bit4    |       bit2     |    bit1    |    bit0   |
- *                   | pump1  |  pump2   |   switch main  |  switch 1  |  switch 2 |
- *  normal           |   off  |   off    |     off        |  off       |   off     |
- *  water tank1->2   |   on   |   off    |     on         |  off       |   on      |
- *  water tank1 loop |   on   |   off    |     on         |  on        |   off     |
- *  water tank2 loop |   off  |   on     |     on         |  off       |   on      |
- *  water tank2->1   |   off  |   on     |     on         |  on        |   off     |
+ *                   | bit4     |       bit2     |    bit1    |    bit0   |
+ *                   | pump low |   valve main   |  valve 1   |  valve  2 |
+ *  normal           |   off    |     off        |  off       |   off     |
+ *  water tank1->2   |   on     |     on         |  off       |   on      |
+ *  water tank1 loop |   on     |     on         |  on        |   off     |
+ *  water tank2 loop |   on     |     on         |  off       |   on      |
+ *  water tank2->1   |   on     |     on         |  on        |   off     |
  */
 
 
@@ -57,6 +57,7 @@
 #include "lib/timer.h"
 #include "lib/flow.h"
 #include "lib/kconfig.h"
+#include "lib/gpio.h"
 #include "ui.h"
 #include "lib/ds18b20_simple_fix.h"
 #include <util/delay.h>
@@ -64,23 +65,13 @@
 
 static short temperature[TEMPERATURE_SENSOR_MAX_NUM];
 
-/* - scene:
- *                   |  bit4    |       bit2     |    bit1    |    bit0   |
- *                   |  pump2   |   switch main  |  switch 1  |  switch 2 |
- *  normal           |   off    |     off        |  off       |   off     |
- *  water tank1->2   |   off    |     on         |  off       |   on      |
- *  water tank1 loop |   off    |     on         |  on        |   off     |
- *  water tank2 loop |   on     |     on         |  off       |   on      |
- *  water tank2->1   |   on     |     on         |  on        |   off     |
 
- */
 
-enum{
-    SWITCH_MASK_PUMP = 0x10,                /* bit4 */
-    SWITCH_MASK_MAIN = 4,                /* bit2 */
-    SWITCH_MASK_TANK1 = 2,                /* bit1 */
-    SWITCH_MASK_TANK2 = 1                /* bit0 */
-};
+#define SWITCH_MASK_PUMP  0x10                /* bit4 */
+#define VALVE_INPUT_TANK1  0                /* bit2 */
+#define VALVE_INPUT_TANK2  4                /* bit2 */
+#define VALVE_OUTPUT_TANK1  2                /* bit1 */
+#define VALVE_OUTPUT_TANK2  1                /* bit0 */
 
 enum{
     SCENE_NORMAL = 0,
@@ -91,51 +82,128 @@ enum{
     SCENE_TOTAL_NUM,
 };
 
+/* - scene:
+ *                   | pump low |   valve main   |  valve 1   |  valve  2 |
+ *  normal           |   off    |     off        |  off       |   off     |
+ *  water tank1->2   |   on     |     off        |  off       |   on      |
+ *  water tank1 loop |   on     |     off        |  on        |   off     |
+ *  water tank2 loop |   on     |     on         |  off       |   on      |
+ *  water tank2->1   |   on     |     on         |  on        |   off     |
+ */
 unsigned char __scene_cfg[SCENE_TOTAL_NUM] = {
-    SWITCH_MASK_PUMP,           /* normal */
-    SWITCH_MASK_PUMP | SWITCH_MASK_TANK2, /* tank1->tank2 */
-    SWITCH_MASK_PUMP | SWITCH_MASK_TANK1, /* tank1 loop */
-    SWITCH_MASK_PUMP | SWITCH_MASK_MAIN | SWITCH_MASK_TANK2, /* tank2 loop */
-    SWITCH_MASK_PUMP | SWITCH_MASK_MAIN | SWITCH_MASK_TANK1, /* tank2 loop */
+    SWITCH_MASK_PUMP | VALVE_INPUT_TANK1,           /* normal */
+    SWITCH_MASK_PUMP | VALVE_INPUT_TANK1 | VALVE_OUTPUT_TANK2, /* tank1->tank2 */
+    SWITCH_MASK_PUMP | VALVE_INPUT_TANK1 | VALVE_OUTPUT_TANK1, /* tank1 loop */
+    SWITCH_MASK_PUMP | VALVE_INPUT_TANK2 | VALVE_OUTPUT_TANK2, /* tank2 loop */
+    SWITCH_MASK_PUMP | VALVE_INPUT_TANK2 | VALVE_OUTPUT_TANK1, /* tank2 loop */
 };
+
+#define VALVE_ON 0
+#define VALVE_OFF 1
+#define VALVE_POWER_GRP GPIO_GROUP_D
+#define VALVE_POWER_INDEX 5
+
+#define VALVE_MAIN_GRP GPIO_GROUP_D
+#define VALVE_MAIN_INDEX 6
+
+#define VALVE_1_GRP GPIO_GROUP_D
+#define VALVE_1_INDEX 7
+
+#define VALVE_2_GRP GPIO_GROUP_B
+#define VALVE_2_INDEX 0
+
+
+static UINT32 valve_setup_time = 0xf;
+static unsigned char valve_status;
+
+void valve_init()
+{
+    valve_setup(SCENE_NORMAL);
+    _delay_ms(5000);
+    valve_power_down();
+}
+
+void valve_power_down()
+{
+        /* powe down all */
+    gpio_output(VALVE_POWER_GRP, VALVE_POWER_INDEX, VALVE_OFF);
+        /* set all IO to VALVE_OFF mode for power saving */
+    gpio_output(VALVE_MAIN_GRP, VALVE_MAIN_INDEX, VALVE_OFF);
+    gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_OFF);
+    gpio_output(VALVE_2_GRP, VALVE_2_INDEX, VALVE_OFF);
+}
+
+
+void valve_check()
+{
+    if(sys_run_seconds() - valve_setup_time > 5){
+            /* poweroff all the valve */
+        valve_power_down();
+    }
+}
 
 void valve_setup(UINT8 scene)
 {
     UINT8 cfg = __scene_cfg[scene];
+
+    if((cfg & 0xf) == valve_status){
+        return;
+    }
+    
+    valve_setup_time = sys_run_seconds();
+    
     screen_const_puts("LABL(16,175,116,239,'进水:");
-    if(cfg & SWITCH_MASK_MAIN){
+    if(cfg & VALVE_INPUT_TANK2){
+        gpio_output(VALVE_MAIN_GRP, VALVE_MAIN_INDEX, VALVE_ON);
         screen_const_puts("2");
     }else{
+        gpio_output(VALVE_MAIN_GRP, VALVE_MAIN_INDEX, VALVE_OFF);
         screen_const_puts("1");
     }
     screen_const_puts("',15,0);\n");
     
     screen_const_puts("LABL(16,175,133,239,'出水1:");
-    if(cfg & SWITCH_MASK_TANK1){
+    if(cfg & VALVE_OUTPUT_TANK1){
+        gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_ON);
         screen_const_puts("开");
     }else{
+        gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_OFF);
         screen_const_puts("关");
     }
     screen_const_puts("',15,0);\n");
 
     screen_const_puts("LABL(16,175,150,239,'出水2:");
-    if(cfg & SWITCH_MASK_TANK2){
+    if(cfg & VALVE_OUTPUT_TANK2){
+        gpio_output(VALVE_2_GRP, VALVE_2_INDEX, VALVE_ON);
         screen_const_puts("开");
     }else{
+        gpio_output(VALVE_2_GRP, VALVE_2_INDEX, VALVE_OFF);
         screen_const_puts("关");
     }
     screen_const_puts("',15,0);\n");
+        /* now power up all pumps */
+    gpio_output(VALVE_POWER_GRP, VALVE_POWER_INDEX, VALVE_ON);
 }
 enum{
-    PUMP_OFF,
-    PUMP_LOW_SPEED,
+    PUMP_LOW_SPEED = 0,
     PUMP_FULL_SPEED
 };
 
-/* 0:off  1:low speed 2:full speed */
-void pump_enable(char enable)
+
+void pump_init()
 {
-    pump_status_show(enable);
+        /* pump control bit PC5 */
+    gpio_output(GPIO_GROUP_C, 5, 1);
+}
+/* PUMP_LOW_SPEED:low speed PUMP_FULL_SPEED:full speed */
+void pump_speed_set(char mode)
+{
+    if(mode == PUMP_FULL_SPEED){
+        gpio_output(GPIO_GROUP_C, 5, 1);
+    }else{
+        gpio_output(GPIO_GROUP_C, 5, 0);
+    }
+    pump_mode_show(mode);
 }
 
 #define WATER_TEMPERATURE_UNIT 1
@@ -398,7 +466,7 @@ int scene_process(UINT8 scene, char dest)
         scene_start_time = sys_run_seconds();
         scene_step = 1;
             /* stop pump */
-        pump_enable(PUMP_OFF);
+        pump_speed_set(PUMP_LOW_SPEED);
         ui_working_info_update("停泵");
     }else if(scene_step==1 && scene_time()>STEP2_START_TIME){
         valve_setup(scene);
@@ -406,10 +474,10 @@ int scene_process(UINT8 scene, char dest)
         ui_working_info_update("设置阀门");
     }else if(scene_step==2 && scene_time()>STEP3_START_TIME){
         if(scene == SCENE_NORMAL){
-            pump_enable(PUMP_FULL_SPEED);
+            pump_speed_set(PUMP_FULL_SPEED);
             ui_working_info_update("开泵(全速)");
         }else{
-            pump_enable(PUMP_LOW_SPEED);
+            pump_speed_set(PUMP_LOW_SPEED);
             ui_working_info_update("开泵(低速)");
         }
         if(scene == SCENE_WATER_TANK1_TO_TANK2)
@@ -601,8 +669,10 @@ int main()
         /* init flow ctrl */
     flow_init();
     screen_const_puts("SPG(1);\n"); /* display main page */    
+
     _delay_ms(300);               /* wait 100ms for main page drawing */
     draw_main_page();
+    valve_init();
 
 #if 0
     screen_const_puts("TERM;\n"); /* display main page */
@@ -611,6 +681,7 @@ int main()
         temp_update();
         flow_speed_update();
         main_opr();
+        valve_check();          /* check pump */
         _delay_ms(200);
     }
 }

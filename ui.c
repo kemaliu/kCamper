@@ -4,16 +4,14 @@
 #define NO_OFFSET
 
 
-void pump_status_show(char status)
+void pump_mode_show(char mode)
 {
 #ifdef NO_OFFSET
     screen_const_puts("LABL(16,175,99,239,'泵:");
-    if(status == 0)
-        screen_const_puts("停");
-    else if(status == 1)
-        screen_const_puts("低速");
-    else
+    if(mode == 0)
         screen_const_puts("全速");
+    else
+        screen_const_puts("低速");
     screen_const_puts("',15,0);\n");
 #else
     
@@ -50,6 +48,5 @@ void draw_main_page()
     screen_const_puts("BTN(4,0,60,119,100,4);LABL(24,2,67,118,'"BUTTON4_CONTENT"',15,1);");
     screen_const_puts("BTN(5,120,60,239,100,4);LABL(24,122,67,238,'"BUTTON5_CONTENT"',15,1);");
     screen_const_puts("SXY(0,0);\r\n");
-    _delay_ms(2000);               /* wait 100ms for main page drawing */
 }
 
