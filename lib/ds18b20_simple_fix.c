@@ -26,9 +26,9 @@ static inline void ds_pin_output(char index)
 
 void ds_init()
 {
-    ds_pin_output_high(TEMPERATURE_SENSOR_TANK1);
-    ds_pin_output_high(TEMPERATURE_SENSOR_TANK2);
-    ds_pin_output_high(TEMPERATURE_SENSOR_HEATER);
+    ds_pin_output_high(TEMPERATURE_COLD_ID);
+    ds_pin_output_high(TEMPERATURE_HOT_ID);
+    ds_pin_output_high(TEMPERATURE_HEATER_ID);
 }
 
 

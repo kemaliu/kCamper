@@ -1,12 +1,18 @@
 /*
  *
- * TANK2---------temp_tank2--->pump2------flow_tank2--|
- *                                                    +--switch main                 +---switch2---->TANK2
- *                                                    |            |                  |                 
- * TANK1-----+--temp_tank1--->pump1------flow_tank1---|            |                  |
- *                                                                 |                  +---switch1---->TANK1
- *                                                                 |                  |
- *                                                                 ---main pump---->HEATER-------->normal usage
+ *
+ * TANK1---->|
+ *           |                                            
+ *       valve_input-->temp_cold----->flow_input--->pump----->HEATER---->temp hot------>normal usae
+ *           |                                                                      |
+ * TANK2---->|                                                                      |
+ *                                                                                  |
+ *                                                                                  +-------->valve 1----->TANK1
+ *                                                                                  |
+ *                                                                                  |
+ *                                                                                  |
+ *                                                                                  +-------->valve 2----->TANK2
+ *
  *
  * 制冷液----------temp_hot
  *
@@ -264,7 +270,7 @@ char * int_to_float_str(long val, int xv)
 
 void ui_temp_update(unsigned char index)
 {
-    screen_cmd_printf("CELS(24,%d,1,'", TEMPERATURE_SENSOR_TANK1==index?1:2);
+    screen_cmd_printf("CELS(24,%d,1,'", TEMPERATURE_COLD_ID==index?1:2);
     if(temperature[index] <= -1000)
         screen_const_puts("NA");
     else
@@ -280,33 +286,33 @@ void temp_update()
     if(!last_sample_time){
             /* do sample */
         last_sample_time = timebase_get();
-        sample_ret[TEMPERATURE_SENSOR_TANK1] = ds_get_temperature_sample(TEMPERATURE_SENSOR_TANK1);
-        sample_ret[TEMPERATURE_SENSOR_TANK2] = ds_get_temperature_sample(TEMPERATURE_SENSOR_TANK2);
-        sample_ret[TEMPERATURE_SENSOR_HEATER] = ds_get_temperature_sample(TEMPERATURE_SENSOR_HEATER);
+        sample_ret[TEMPERATURE_COLD_ID] = ds_get_temperature_sample(TEMPERATURE_COLD_ID);
+        sample_ret[TEMPERATURE_HOT_ID] = ds_get_temperature_sample(TEMPERATURE_HOT_ID);
+        sample_ret[TEMPERATURE_HEATER_ID] = ds_get_temperature_sample(TEMPERATURE_HEATER_ID);
     }else{
         if(time_diff_ms(last_sample_time) <= 2000) /* sample need wait 2 seconds */
             return;
-        if(!sample_ret[TEMPERATURE_SENSOR_TANK1]) /* start sample return OK */
-            temperature[TEMPERATURE_SENSOR_TANK1] = ds_get_temperature_read(TEMPERATURE_SENSOR_TANK1);
+        if(!sample_ret[TEMPERATURE_COLD_ID]) /* start sample return OK */
+            temperature[TEMPERATURE_COLD_ID] = ds_get_temperature_read(TEMPERATURE_COLD_ID);
         else
-            temperature[TEMPERATURE_SENSOR_TANK1] = -1000;
-        if(!sample_ret[TEMPERATURE_SENSOR_TANK2]) /* start sample return OK */
-            temperature[TEMPERATURE_SENSOR_TANK2] = ds_get_temperature_read(TEMPERATURE_SENSOR_TANK2);
+            temperature[TEMPERATURE_COLD_ID] = -1000;
+        if(!sample_ret[TEMPERATURE_HOT_ID]) /* start sample return OK */
+            temperature[TEMPERATURE_HOT_ID] = ds_get_temperature_read(TEMPERATURE_HOT_ID);
         else
-            temperature[TEMPERATURE_SENSOR_TANK2] = -1000;
+            temperature[TEMPERATURE_HOT_ID] = -1000;
         
-        if(!sample_ret[TEMPERATURE_SENSOR_HEATER]) /* start sample return OK */
-            temperature[TEMPERATURE_SENSOR_HEATER] = ds_get_temperature_read(TEMPERATURE_SENSOR_HEATER);
+        if(!sample_ret[TEMPERATURE_HEATER_ID]) /* start sample return OK */
+            temperature[TEMPERATURE_HEATER_ID] = ds_get_temperature_read(TEMPERATURE_HEATER_ID);
         else
-            temperature[TEMPERATURE_SENSOR_HEATER] = -1000;
+            temperature[TEMPERATURE_HEATER_ID] = -1000;
         
-        if(old_temperature[TEMPERATURE_SENSOR_TANK1] != temperature[TEMPERATURE_SENSOR_TANK1]){
-            ui_temp_update(TEMPERATURE_SENSOR_TANK1);
-            old_temperature[TEMPERATURE_SENSOR_TANK1] = temperature[TEMPERATURE_SENSOR_TANK1];
+        if(old_temperature[TEMPERATURE_COLD_ID] != temperature[TEMPERATURE_COLD_ID]){
+            ui_temp_update(TEMPERATURE_COLD_ID);
+            old_temperature[TEMPERATURE_COLD_ID] = temperature[TEMPERATURE_COLD_ID];
         }
-        if(old_temperature[TEMPERATURE_SENSOR_TANK2] != temperature[TEMPERATURE_SENSOR_TANK2]){
-            ui_temp_update(TEMPERATURE_SENSOR_TANK2);
-            old_temperature[TEMPERATURE_SENSOR_TANK2] = temperature[TEMPERATURE_SENSOR_TANK2];
+        if(old_temperature[TEMPERATURE_HOT_ID] != temperature[TEMPERATURE_HOT_ID]){
+            ui_temp_update(TEMPERATURE_HOT_ID);
+            old_temperature[TEMPERATURE_HOT_ID] = temperature[TEMPERATURE_HOT_ID];
         }
         last_sample_time = 0;
     }
@@ -597,11 +603,11 @@ void temperature_process(char index, char destination)
         if(WARM_RUN_SECONDS() > old_val){
             old_val = WARM_RUN_SECONDS();
             sprintf(working_info,"%s水箱保温,运行%lu秒", (!index)?"主":"副", old_val);
-            sprintf(working_info1,"达标计数:%d/50,%d/%d", warm_param.ok_cnt, temperature[TEMPERATURE_SENSOR_TANK1]/16, destination);
+            sprintf(working_info1,"达标计数:%d/50,%d/%d", warm_param.ok_cnt, temperature[TEMPERATURE_COLD_ID]/16, destination);
             ui_working_info_pending();
         }
         if(WARM_RUN_SECONDS() > 30){
-            if(temperature[TEMPERATURE_SENSOR_TANK1]/16 >= destination){
+            if(temperature[TEMPERATURE_COLD_ID]/16 >= destination){
                 warm_param.ok_cnt++;
             }else{
                 warm_param.ok_cnt = 0;
