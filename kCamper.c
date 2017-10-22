@@ -270,7 +270,7 @@ char * int_to_float_str(long val, int xv)
 
 void ui_temp_update(unsigned char index)
 {
-    screen_cmd_printf("CELS(24,%d,1,'", TEMPERATURE_COLD_ID==index?1:2);
+    screen_cmd_printf("CELS(16,1,%d,'", 1 + index);
     if(temperature[index] <= -1000)
         screen_const_puts("NA");
     else
@@ -283,36 +283,25 @@ void temp_update()
     static UINT32 last_sample_time = 0;
     static short old_temperature[TEMPERATURE_SENSOR_MAX_NUM] = {-1009, -1009, -1009};
     static int sample_ret[TEMPERATURE_SENSOR_MAX_NUM];
+    char i;
     if(!last_sample_time){
             /* do sample */
         last_sample_time = timebase_get();
-        sample_ret[TEMPERATURE_COLD_ID] = ds_get_temperature_sample(TEMPERATURE_COLD_ID);
-        sample_ret[TEMPERATURE_HOT_ID] = ds_get_temperature_sample(TEMPERATURE_HOT_ID);
-        sample_ret[TEMPERATURE_HEATER_ID] = ds_get_temperature_sample(TEMPERATURE_HEATER_ID);
+        for(i=0; i<TEMPERATURE_SENSOR_MAX_NUM; i++){
+            sample_ret[i] = ds_get_temperature_sample(i);
+        }
     }else{
         if(time_diff_ms(last_sample_time) <= 2000) /* sample need wait 2 seconds */
             return;
-        if(!sample_ret[TEMPERATURE_COLD_ID]) /* start sample return OK */
-            temperature[TEMPERATURE_COLD_ID] = ds_get_temperature_read(TEMPERATURE_COLD_ID);
-        else
-            temperature[TEMPERATURE_COLD_ID] = -1000;
-        if(!sample_ret[TEMPERATURE_HOT_ID]) /* start sample return OK */
-            temperature[TEMPERATURE_HOT_ID] = ds_get_temperature_read(TEMPERATURE_HOT_ID);
-        else
-            temperature[TEMPERATURE_HOT_ID] = -1000;
-        
-        if(!sample_ret[TEMPERATURE_HEATER_ID]) /* start sample return OK */
-            temperature[TEMPERATURE_HEATER_ID] = ds_get_temperature_read(TEMPERATURE_HEATER_ID);
-        else
-            temperature[TEMPERATURE_HEATER_ID] = -1000;
-        
-        if(old_temperature[TEMPERATURE_COLD_ID] != temperature[TEMPERATURE_COLD_ID]){
-            ui_temp_update(TEMPERATURE_COLD_ID);
-            old_temperature[TEMPERATURE_COLD_ID] = temperature[TEMPERATURE_COLD_ID];
-        }
-        if(old_temperature[TEMPERATURE_HOT_ID] != temperature[TEMPERATURE_HOT_ID]){
-            ui_temp_update(TEMPERATURE_HOT_ID);
-            old_temperature[TEMPERATURE_HOT_ID] = temperature[TEMPERATURE_HOT_ID];
+        for(i=0; i<TEMPERATURE_SENSOR_MAX_NUM; i++){
+            if(!sample_ret[i]) /* start sample return OK */
+                temperature[i] = ds_get_temperature_read(i);
+            else 
+                temperature[i] = -1000;
+            if(old_temperature[i] != temperature[i]){
+                ui_temp_update(i);
+                old_temperature[i] = temperature[i];
+            }
         }
         last_sample_time = 0;
     }

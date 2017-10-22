@@ -26,16 +26,16 @@ void draw_main_page()
     screen_const_puts("DR3;");
     screen_const_puts("TPN(2);");
     screen_const_puts("CLS(0);");
-    screen_const_puts("TABL(0,0,79,30,3,3,19);");
-    screen_const_puts("CELS(24,0,0,'',15,0,1);");
-    screen_const_puts("CELS(24,0,1,'温度',2,0,1);");
-    screen_const_puts("CELS(24,0,2,'流速',2,0,1);");
-    screen_const_puts("CELS(24,1,0,'主水箱',2,0,1);");
-    screen_const_puts("CELS(24,1,1,'',2,0,1);");
-    screen_const_puts("CELS(24,1,2,'',2,0,1);");
-    screen_const_puts("CELS(24,2,0,'副水箱',2,0,1);");
-    screen_const_puts("CELS(24,2,1,'',2,0,1);");
-    screen_const_puts("CELS(24,2,2,'',2,0,1);");
+    screen_const_puts("TABL(0,0,59,22,4,4,19);");
+    screen_const_puts("CELS(16,0,1,'冷水',15,0,1);");
+    screen_const_puts("CELS(16,0,2,'热水',15,0,1);");
+    screen_const_puts("CELS(16,0,3,'加热器',15,0,1);");
+    screen_const_puts("CELS(16,1,0,'温度',2,0,1);");
+
+    screen_const_puts("CELS(16,2,1,'进水',15,0,1);");
+    screen_const_puts("CELS(16,2,2,'主箱出',15,0,1);");
+    screen_const_puts("CELS(16,2,3,'副水出',15,0,1);");
+    screen_const_puts("CELS(16,3,0,'流速',2,0,1);");
     screen_const_puts("SBC(0);");
     screen_const_puts(AREA_1_START);
     screen_const_puts("BOXF(0,0,329,3,2);DS16(1,17,'模式:',2,0);");
