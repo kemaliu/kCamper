@@ -1,5 +1,6 @@
 #include "pump.h"
 #include "lib/gpio.h"
+#include "lib/kconfig.h"
 void pump_init()
 {
         /* pump control bit PC5 */
@@ -10,7 +11,6 @@ void pump_init()
 
 void pump_mode_show(char mode)
 {
-#ifdef NO_OFFSET
     screen_const_puts("LABL(16,175,99,239,'±Ã:");
     if(mode == 0)
         screen_const_puts("¹Ø±Õ");
@@ -19,9 +19,6 @@ void pump_mode_show(char mode)
     else
         screen_const_puts("µÍËÙ");
     screen_const_puts("',15,0);\n");
-#else
-    
-#endif
 }
 
 

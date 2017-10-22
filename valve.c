@@ -48,8 +48,6 @@ static unsigned char valve_status = 0xf;
 void valve_init()
 {
     valve_setup(SCENE_NORMAL);
-    _delay_ms(5000);
-    valve_power_down();
 }
 
 void valve_power_down()
