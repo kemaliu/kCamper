@@ -547,6 +547,93 @@ int scene_process(UINT8 scene, char dest)
 }
 
 
+#define TANK1_WARM_INTERVAL 1800 /* 30min */
+#define TANK2_WARM_INTERVAL 600 /* 10min */
+struct tank_warm_param_struct{
+    UINT32 warm_end_time;
+    UINT32 interval;
+};
+
+static struct warm_param_struct{
+    struct tank_warm_param_struct tank[2];
+    UINT32 start_time;
+    char runing_flag;
+    unsigned char ok_cnt;
+}warm_param = {
+    .tank[0].warm_end_time = 100000,
+    .tank[0].interval = TANK1_WARM_INTERVAL,
+    .tank[1].warm_end_time = 100000,
+    .tank[1].interval = TANK2_WARM_INTERVAL,
+    .start_time = 0,
+    .runing_flag = 0,
+    .ok_cnt = 0
+};
+
+#define WARM_RUN_SECONDS() (sys_run_seconds() - warm_param.start_time)
+
+void temperature_process(char index, char destination)
+{
+    static UINT32 old_val;
+    char scene_ret;
+    if(index >= 2){
+        pump_mode_set(PUMP_OFF);
+        if(old_val != sys_run_seconds()){
+            sprintf(working_info,"主水箱保温%lu秒后运行", warm_param.tank[0].interval - (sys_run_seconds() - warm_param.tank[0].warm_end_time));
+            sprintf(working_info1,"副水箱保温%lu秒后运行", warm_param.tank[1].interval - (sys_run_seconds() - warm_param.tank[1].warm_end_time));
+            ui_working_info_pending();
+        } 
+        return;
+    }
+    if(!warm_param.runing_flag){
+        scene_reset();
+        warm_param.start_time = sys_run_seconds();
+        warm_param.runing_flag = 1;
+        warm_param.ok_cnt = 0;
+        old_val = 0;
+    }
+        /* do tank1 loop */
+    scene_ret = scene_process(SCENE_WATER_TANK1_LOOP+index, destination);
+    if(scene_ret >= 3){
+        if(WARM_RUN_SECONDS() > old_val){
+            old_val = WARM_RUN_SECONDS();
+            sprintf(working_info,"%s水箱保温,运行%lu秒", (!index)?"主":"副", old_val);
+            sprintf(working_info1,"达标计数:%d/50,%d/%d", warm_param.ok_cnt, temperature[TEMPERATURE_SENSOR_TANK1]/16, destination);
+            ui_working_info_pending();
+        }
+        if(WARM_RUN_SECONDS() > 30){
+            if(temperature[TEMPERATURE_SENSOR_TANK1]/16 >= destination){
+                warm_param.ok_cnt++;
+            }else{
+                warm_param.ok_cnt = 0;
+            }
+            if(warm_param.ok_cnt >= 50){
+                    /* warm done, power off pump */
+                pump_mode_set(PUMP_OFF);
+                    /* update tank1 warm end time */
+                warm_param.tank[index].warm_end_time = sys_run_seconds();
+                warm_param.runing_flag = 0;
+            }
+        }
+    }
+}
+
+
+void warm_process(char destination)
+{
+    if(sys_run_seconds() - warm_param.tank[0].warm_end_time > warm_param.tank[0].interval){
+            /* do tank1 warm */
+        temperature_process(0, destination);
+    }else if(sys_run_seconds() - warm_param.tank[1].warm_end_time > warm_param.tank[1].interval){
+            /* do tank2 warm */
+        temperature_process(1, destination);
+    }else{
+            /* warm idle */
+        temperature_process(2, 0);
+    }
+}
+
+
+
 char activebutton_process(char button, char destination)
 {
     char scene_ret;
@@ -558,88 +645,7 @@ char activebutton_process(char button, char destination)
             scene_ret = scene_process(SCENE_NORMAL, destination);
             break;
         case 2:                 /* keep warm */
-            {
-#define TANK1_WARM_INTERVAL 1800 /* 30min */
-#define TANK2_WARM_INTERVAL 600 /* 10min */
-                static UINT32 tank_warm_end_time[2] = {100000, 100000};
-                static UINT32 tank_warm_start_time = 0;
-                static char runing_flag = 0;
-                static unsigned char repeat = 0;
-                if(sys_run_seconds() - tank_warm_end_time[0] > TANK1_WARM_INTERVAL){
-                    if(!runing_flag){
-                        scene_reset();
-                        tank_warm_start_time = sys_run_seconds();
-                        runing_flag = 1;
-                        repeat = 0;
-                        old_val = 0;
-                    }
-                        /* do tank1 loop */
-                    scene_ret = scene_process(SCENE_WATER_TANK1_LOOP, destination);
-
-                    if(scene_ret >= 3){
-                        if(sys_run_seconds() - tank_warm_start_time > old_val){
-                            old_val = sys_run_seconds() - tank_warm_start_time;
-                            sprintf(working_info,"主水箱保温,运行%lu秒", old_val);
-                            sprintf(working_info1,"达标计数:%d/50,%d/%d", repeat, temperature[TEMPERATURE_SENSOR_TANK1]/16, destination);
-                            ui_working_info_pending();
-                        }
-                        if(sys_run_seconds() - tank_warm_start_time > 30){
-                            if(temperature[TEMPERATURE_SENSOR_TANK1]/16 >= destination){
-                                repeat++;
-                            }else{
-                                repeat = 0;
-                            }
-                            if(repeat >= 50){
-                                    /* warm done, power off pump */
-                                pump_mode_set(PUMP_OFF);
-                                    /* update tank1 warm end time */
-                                tank_warm_end_time[0] = sys_run_seconds();
-                                runing_flag = 0;
-                            }
-                        }
-                    }
-                }else if(sys_run_seconds() - tank_warm_end_time[1] > TANK2_WARM_INTERVAL){
-                    if(!runing_flag){
-                        scene_reset();
-                        tank_warm_start_time = sys_run_seconds();
-                        runing_flag = 1;
-                        repeat = 0;
-                        old_val = 0;
-                    }
-                        /* do tank1 loop */
-                    scene_ret = scene_process(SCENE_WATER_TANK2_LOOP, destination);
-                    if(scene_ret >= 3){
-                        if(sys_run_seconds() - tank_warm_start_time > old_val){
-                            old_val = sys_run_seconds() - tank_warm_start_time;
-                            sprintf(working_info,"副水箱保温,运行%lu秒", old_val);
-                            sprintf(working_info1,"达标计数:%d/50,%d/%d", repeat, temperature[TEMPERATURE_SENSOR_TANK2]/16, destination);
-                            ui_working_info_pending();
-                        }
-                        if(sys_run_seconds() - tank_warm_start_time > 30){
-                            if(temperature[TEMPERATURE_SENSOR_TANK2]/16 >= destination){
-                                repeat++;
-                            }else{
-                                repeat = 0;
-                            }
-                            if(repeat >= 50){
-                                    /* warm done, power off pump */
-                                pump_mode_set(PUMP_OFF);
-                                    /* update tank1 warm end time */
-                                tank_warm_end_time[1] = sys_run_seconds();
-                                runing_flag = 0;
-                            }
-                        }                    
-                    }
-                }else{
-                    pump_mode_set(PUMP_OFF);
-                    if(old_val != sys_run_seconds()){
-                        sprintf(working_info,"主水箱%lu秒运行", TANK1_WARM_INTERVAL - (sys_run_seconds() - tank_warm_end_time[0]));
-                        sprintf(working_info1,"副水箱%lu秒运行", TANK2_WARM_INTERVAL - (sys_run_seconds() - tank_warm_end_time[1]));
-                        ui_working_info_pending();
-                    } 
-                }
-            }
-                /* loop SCENE_WATER_TANK1_LOOP &  SCENE_WATER_TANK2_LOOP; */
+            warm_process(destination);
             break;
         case 3:
                 /* heat tank1 */
