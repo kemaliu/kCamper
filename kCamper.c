@@ -185,10 +185,10 @@ void ui_working_info_show()
     if((working_info_pending)){
         screen_const_puts(AREA_1_START);
             /* update data mode */
-        screen_const_puts("LABL(16,0,80,180,'");
+        screen_const_puts("LABL(16,0,80,174,'");
         screen_cmd_puts(working_info);
         screen_const_puts("',15,0);");
-        screen_const_puts("LABL(16,0,100,180,'");
+        screen_const_puts("LABL(16,0,100,174,'");
         screen_cmd_puts(working_info1);
         screen_const_puts("',15,0);SXY(0,0);\n");
         working_info_pending = 0;
@@ -405,10 +405,6 @@ void warm_process(char destination)
     }
 }
 
-void mode_set()
-{
-    
-}
 
 
 char mode_process(char mode, char destination)
@@ -513,7 +509,7 @@ static inline void main_opr()
                 break;
             case 1:             /* change setting */
                 if((param_lock)) 
-                    return;   /* ignore button 1 input*/
+                    break;;   /* ignore button 1 input*/
                 switch(current_mode){
                     case MODE_WARM:             /* keep warm */
                             /* warm tank1/tank2 warming */
@@ -585,11 +581,11 @@ static inline void main_opr()
     /* button blink */
     button_blink(current_mode, 1); /* blinking current button */
     
-    if(sys_run_seconds() - param_mod_time < 5){
+    if(sys_run_seconds() - param_mod_time < 3){
         static char last_diff = 10;
         if(sys_run_seconds() - param_mod_time != last_diff){
-            char *time_buf = "0秒后开始工作";
-            time_buf[0] = '0' + (5 - (sys_run_seconds() - param_mod_time));
+            char *time_buf = "运行倒数:0";
+            time_buf[9] = '0' + (3 - (sys_run_seconds() - param_mod_time));
             ui_working_info_update(time_buf);
             last_diff = sys_run_seconds() - param_mod_time;
         }

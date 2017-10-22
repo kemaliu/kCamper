@@ -79,17 +79,32 @@ void valve_setup(UINT8 scene)
     valve_mod_time = sys_run_seconds();
     valve_status = cfg & 0xf;
     
-    screen_const_puts("LABL(16,175,116,239,'进水:");
+    screen_const_puts("LABL(16,175,116,239,'水源:");
     if(cfg & VALVE_INPUT_TANK2){
         gpio_output(VALVE_MAIN_GRP, VALVE_MAIN_INDEX, VALVE_ON);
-        screen_const_puts("2");
+        screen_const_puts("副");
     }else{
         gpio_output(VALVE_MAIN_GRP, VALVE_MAIN_INDEX, VALVE_OFF);
-        screen_const_puts("1");
+        screen_const_puts("主");
     }
     screen_const_puts("',15,0);\n");
     
-    screen_const_puts("LABL(16,175,133,239,'出水1:");
+    
+    screen_const_puts("LABL(16,175,133,239,'出水:");
+    if(cfg & VALVE_OUTPUT_TANK1){
+        gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_ON);
+        screen_const_puts("主");
+    }else if(cfg & VALVE_OUTPUT_TANK2){
+        gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_OFF);
+        screen_const_puts("副");
+    }else{
+        gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_OFF);
+        screen_const_puts("NA");
+    }
+    screen_const_puts("',15,0);\n");
+
+    
+    screen_const_puts("LABL(16,175,150,239,'主加:");
     if(cfg & VALVE_OUTPUT_TANK1){
         gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_ON);
         screen_const_puts("开");
@@ -99,7 +114,7 @@ void valve_setup(UINT8 scene)
     }
     screen_const_puts("',15,0);\n");
 
-    screen_const_puts("LABL(16,175,150,239,'出水2:");
+    screen_const_puts("LABL(16,175,167,239,'副加:");
     if(cfg & VALVE_OUTPUT_TANK2){
         gpio_output(VALVE_2_GRP, VALVE_2_INDEX, VALVE_ON);
         screen_const_puts("开");
