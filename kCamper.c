@@ -49,13 +49,13 @@
  *   valve 2: PB0
  *
  *  scene:
- *                   | bit4     |       bit2     |    bit1    |    bit0   |
- *                   | pump low |   valve main   |  valve 1   |  valve  2 |
- *  normal           |   off    |     off        |  off       |   off     |
- *  water tank1->2   |   on     |     on         |  off       |   on      |
- *  water tank1 loop |   on     |     on         |  on        |   off     |
- *  water tank2 loop |   on     |     on         |  off       |   on      |
- *  water tank2->1   |   on     |     on         |  on        |   off     |
+ *                   |       bit2     |    bit1    |    bit0   |
+ *                   |   valve main   |  valve 1   |  valve  2 |
+ *  normal           |     off        |  off       |   off     |
+ *  water tank1->2   |     on         |  off       |   on      |
+ *  water tank1 loop |     on         |  on        |   off     |
+ *  water tank2 loop |     on         |  off       |   on      |
+ *  water tank2->1   |     on         |  on        |   off     |
  */
 
 

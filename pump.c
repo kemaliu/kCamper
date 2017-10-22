@@ -11,13 +11,13 @@ void pump_init()
 void pump_mode_show(char mode)
 {
 #ifdef NO_OFFSET
-    screen_const_puts("LABL(16,175,99,239,'æ³µ:");
+    screen_const_puts("LABL(16,175,99,239,'±Ã:");
     if(mode == 0)
-        screen_const_puts("å…³é—­");
+        screen_const_puts("¹Ø±Õ");
     else if(mode == 2)
-        screen_const_puts("å…¨é€Ÿ");
+        screen_const_puts("È«ËÙ");
     else
-        screen_const_puts("ä½Žé€Ÿ");
+        screen_const_puts("µÍËÙ");
     screen_const_puts("',15,0);\n");
 #else
     

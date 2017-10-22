@@ -4,7 +4,6 @@
 #include "lib/timer.h"
 #include "valve.h"
 
-#define SWITCH_MASK_PUMP  0x10                /* bit4 */
 #define VALVE_INPUT_TANK1  0                /* bit2 */
 #define VALVE_INPUT_TANK2  4                /* bit2 */
 #define VALVE_OUTPUT_TANK1  2                /* bit1 */
@@ -21,11 +20,11 @@
  *  water tank2->1   |   on     |     on         |  on        |   off     |
  */
 unsigned char __scene_cfg[SCENE_TOTAL_NUM] = {
-    SWITCH_MASK_PUMP | VALVE_INPUT_TANK1,           /* normal */
-    SWITCH_MASK_PUMP | VALVE_INPUT_TANK1 | VALVE_OUTPUT_TANK2, /* tank1->tank2 */
-    SWITCH_MASK_PUMP | VALVE_INPUT_TANK1 | VALVE_OUTPUT_TANK1, /* tank1 loop */
-    SWITCH_MASK_PUMP | VALVE_INPUT_TANK2 | VALVE_OUTPUT_TANK2, /* tank2 loop */
-    SWITCH_MASK_PUMP | VALVE_INPUT_TANK2 | VALVE_OUTPUT_TANK1, /* tank2 loop */
+    VALVE_INPUT_TANK1,           /* normal */
+    VALVE_INPUT_TANK1 | VALVE_OUTPUT_TANK2, /* tank1->tank2 */
+    VALVE_INPUT_TANK1 | VALVE_OUTPUT_TANK1, /* tank1 loop */
+    VALVE_INPUT_TANK2 | VALVE_OUTPUT_TANK2, /* tank2 loop */
+    VALVE_INPUT_TANK2 | VALVE_OUTPUT_TANK1, /* tank2 loop */
 };
 
 #define VALVE_ON 0
@@ -82,7 +81,7 @@ void valve_setup(UINT8 scene)
     valve_mod_time = sys_run_seconds();
     valve_status = cfg & 0xf;
     
-    screen_const_puts("LABL(16,175,116,239,'è¿›æ°´:");
+    screen_const_puts("LABL(16,175,116,239,'½øË®:");
     if(cfg & VALVE_INPUT_TANK2){
         gpio_output(VALVE_MAIN_GRP, VALVE_MAIN_INDEX, VALVE_ON);
         screen_const_puts("2");
@@ -92,23 +91,23 @@ void valve_setup(UINT8 scene)
     }
     screen_const_puts("',15,0);\n");
     
-    screen_const_puts("LABL(16,175,133,239,'å‡ºæ°´1:");
+    screen_const_puts("LABL(16,175,133,239,'³öË®1:");
     if(cfg & VALVE_OUTPUT_TANK1){
         gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_ON);
-        screen_const_puts("å¼€");
+        screen_const_puts("¿ª");
     }else{
         gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_OFF);
-        screen_const_puts("å…³");
+        screen_const_puts("¹Ø");
     }
     screen_const_puts("',15,0);\n");
 
-    screen_const_puts("LABL(16,175,150,239,'å‡ºæ°´2:");
+    screen_const_puts("LABL(16,175,150,239,'³öË®2:");
     if(cfg & VALVE_OUTPUT_TANK2){
         gpio_output(VALVE_2_GRP, VALVE_2_INDEX, VALVE_ON);
-        screen_const_puts("å¼€");
+        screen_const_puts("¿ª");
     }else{
         gpio_output(VALVE_2_GRP, VALVE_2_INDEX, VALVE_OFF);
-        screen_const_puts("å…³");
+        screen_const_puts("¹Ø");
     }
     screen_const_puts("',15,0);\n");
         /* now power up all pumps */
