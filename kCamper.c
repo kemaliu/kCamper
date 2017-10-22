@@ -63,6 +63,9 @@
 #include "lib/uart.h"
 #include "lib/timer.h"
 #include "lib/flow.h"
+#include "sensor.h"
+#include "pump.h"
+#include "valve.h"
 #include "lib/kconfig.h"
 #include "lib/gpio.h"
 #include "ui.h"
@@ -70,168 +73,11 @@
 #include <util/delay.h>
 #include <avr/interrupt.h>
 
-static short temperature[TEMPERATURE_SENSOR_MAX_NUM];
 
 
 
-#define SWITCH_MASK_PUMP  0x10                /* bit4 */
-#define VALVE_INPUT_TANK1  0                /* bit2 */
-#define VALVE_INPUT_TANK2  4                /* bit2 */
-#define VALVE_OUTPUT_TANK1  2                /* bit1 */
-#define VALVE_OUTPUT_TANK2  1                /* bit0 */
-
-enum{
-    SCENE_NORMAL = 0,
-    SCENE_WATER_TANK1_TO_TANK2 = 1,
-    SCENE_WATER_TANK1_LOOP = 2,
-    SCENE_WATER_TANK2_LOOP = 3,
-    SCENE_WATER_TANK2_TO_TANK1 = 4,
-    SCENE_TOTAL_NUM,
-};
-
-/* - scene:
- *                   | pump low |   valve main   |  valve 1   |  valve  2 |
- *  normal           |   off    |     off        |  off       |   off     |
- *  water tank1->2   |   on     |     off        |  off       |   on      |
- *  water tank1 loop |   on     |     off        |  on        |   off     |
- *  water tank2 loop |   on     |     on         |  off       |   on      |
- *  water tank2->1   |   on     |     on         |  on        |   off     |
- */
-unsigned char __scene_cfg[SCENE_TOTAL_NUM] = {
-    SWITCH_MASK_PUMP | VALVE_INPUT_TANK1,           /* normal */
-    SWITCH_MASK_PUMP | VALVE_INPUT_TANK1 | VALVE_OUTPUT_TANK2, /* tank1->tank2 */
-    SWITCH_MASK_PUMP | VALVE_INPUT_TANK1 | VALVE_OUTPUT_TANK1, /* tank1 loop */
-    SWITCH_MASK_PUMP | VALVE_INPUT_TANK2 | VALVE_OUTPUT_TANK2, /* tank2 loop */
-    SWITCH_MASK_PUMP | VALVE_INPUT_TANK2 | VALVE_OUTPUT_TANK1, /* tank2 loop */
-};
-
-#define VALVE_ON 0
-#define VALVE_OFF 1
-#define VALVE_POWER_GRP GPIO_GROUP_D
-#define VALVE_POWER_INDEX 5
-
-#define VALVE_MAIN_GRP GPIO_GROUP_D
-#define VALVE_MAIN_INDEX 6
-
-#define VALVE_1_GRP GPIO_GROUP_D
-#define VALVE_1_INDEX 7
-
-#define VALVE_2_GRP GPIO_GROUP_B
-#define VALVE_2_INDEX 0
 
 
-static UINT32 valve_mod_time = 0x0;
-static unsigned char valve_status = 0xf;
-
-void valve_init()
-{
-    valve_setup(SCENE_NORMAL);
-    _delay_ms(5000);
-    valve_power_down();
-}
-
-void valve_power_down()
-{
-        /* powe down all */
-    gpio_output(VALVE_POWER_GRP, VALVE_POWER_INDEX, VALVE_OFF);
-        /* set all IO to VALVE_OFF mode for power saving */
-    gpio_output(VALVE_MAIN_GRP, VALVE_MAIN_INDEX, VALVE_OFF);
-    gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_OFF);
-    gpio_output(VALVE_2_GRP, VALVE_2_INDEX, VALVE_OFF);
-}
-
-
-void valve_check()
-{
-    if(sys_run_seconds() - valve_mod_time > 5){
-            /* poweroff all the valve */
-        valve_power_down();
-    }
-}
-
-void valve_setup(UINT8 scene)
-{
-    UINT8 cfg = __scene_cfg[scene];
-
-    if((cfg & 0xf) == valve_status){
-        return;
-    }
-    valve_mod_time = sys_run_seconds();
-    valve_status = cfg & 0xf;
-    
-    screen_const_puts("LABL(16,175,116,239,'进水:");
-    if(cfg & VALVE_INPUT_TANK2){
-        gpio_output(VALVE_MAIN_GRP, VALVE_MAIN_INDEX, VALVE_ON);
-        screen_const_puts("2");
-    }else{
-        gpio_output(VALVE_MAIN_GRP, VALVE_MAIN_INDEX, VALVE_OFF);
-        screen_const_puts("1");
-    }
-    screen_const_puts("',15,0);\n");
-    
-    screen_const_puts("LABL(16,175,133,239,'出水1:");
-    if(cfg & VALVE_OUTPUT_TANK1){
-        gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_ON);
-        screen_const_puts("开");
-    }else{
-        gpio_output(VALVE_1_GRP, VALVE_1_INDEX, VALVE_OFF);
-        screen_const_puts("关");
-    }
-    screen_const_puts("',15,0);\n");
-
-    screen_const_puts("LABL(16,175,150,239,'出水2:");
-    if(cfg & VALVE_OUTPUT_TANK2){
-        gpio_output(VALVE_2_GRP, VALVE_2_INDEX, VALVE_ON);
-        screen_const_puts("开");
-    }else{
-        gpio_output(VALVE_2_GRP, VALVE_2_INDEX, VALVE_OFF);
-        screen_const_puts("关");
-    }
-    screen_const_puts("',15,0);\n");
-        /* now power up all pumps */
-    gpio_output(VALVE_POWER_GRP, VALVE_POWER_INDEX, VALVE_ON);
-}
-enum{
-    PUMP_OFF = 0,
-    PUMP_LOW_SPEED,
-    PUMP_FULL_SPEED
-};
-
-
-void pump_init()
-{
-        /* pump control bit PC5 */
-    pump_mode_set(PUMP_FULL_SPEED);
-}
-/* PUMP_LOW_SPEED:low speed PUMP_FULL_SPEED:full speed */
-void pump_mode_set(char mode)
-{
-        /* PD2 1:12V ------- pump
-         *     0:12V ------- DC-DC 12->5v
-         * PD3 1:5v output disable
-         *     0:5v output enable
-         */   
-    switch(mode){
-        case PUMP_OFF:
-            gpio_output(GPIO_GROUP_D, 2, 0);
-            gpio_output(GPIO_GROUP_D, 3, 1);
-            break;
-        case PUMP_LOW_SPEED:
-            gpio_output(GPIO_GROUP_D, 2, 0);
-            gpio_output(GPIO_GROUP_D, 3, 0);
-            break;
-        case PUMP_FULL_SPEED:
-            gpio_output(GPIO_GROUP_D, 2, 1);
-            gpio_output(GPIO_GROUP_D, 3, 1);
-            break;
-    }
-    if(mode == PUMP_FULL_SPEED){
-        
-    }else{
-        gpio_output(GPIO_GROUP_D, 2, 0);
-    }
-    pump_mode_show(mode);
-}
 
 #define WATER_TEMPERATURE_UNIT 1
 
@@ -268,67 +114,9 @@ char * int_to_float_str(long val, int xv)
     return buf;
 }
 
-void ui_temp_update(unsigned char index)
-{
-    screen_cmd_printf("CELS(16,1,%d,'", 1 + index);
-    if(temperature[index] <= -1000)
-        screen_const_puts("NA");
-    else
-        screen_cmd_puts(int_to_float_str(temperature[index], 16));
-    screen_const_puts("',15,0,1);\n");
-}
 
-void temp_update()
-{
-    static UINT32 last_sample_time = 0;
-    static short old_temperature[TEMPERATURE_SENSOR_MAX_NUM] = {-1009, -1009, -1009};
-    static int sample_ret[TEMPERATURE_SENSOR_MAX_NUM];
-    char i;
-    if(!last_sample_time){
-            /* do sample */
-        last_sample_time = timebase_get();
-        for(i=0; i<TEMPERATURE_SENSOR_MAX_NUM; i++){
-            sample_ret[i] = ds_get_temperature_sample(i);
-        }
-    }else{
-        if(time_diff_ms(last_sample_time) <= 2000) /* sample need wait 2 seconds */
-            return;
-        for(i=0; i<TEMPERATURE_SENSOR_MAX_NUM; i++){
-            if(!sample_ret[i]) /* start sample return OK */
-                temperature[i] = ds_get_temperature_read(i);
-            else 
-                temperature[i] = -1000;
-            if(old_temperature[i] != temperature[i]){
-                ui_temp_update(i);
-                old_temperature[i] = temperature[i];
-            }
-        }
-        last_sample_time = 0;
-    }
-}
 
-void flow_speed_update()
-{
-    UINT32 speed;
-    static UINT32 old_speed[FLOW_NUM] = {0xffffffff, 0xffffffff};
-    
-    speed = flow_cnt_speed(FLOW_TANK1_OUT);
-    if(speed != old_speed[FLOW_TANK1_OUT]){
-        screen_const_puts("CELS(24,1,2,'");
-        screen_cmd_puts(int_to_float_str(speed, 1071));
-        screen_const_puts("',15,0,1);\n");
-        old_speed[FLOW_TANK1_OUT] = speed;
-    }
 
-    speed = flow_cnt_speed(FLOW_TANK2_OUT);
-    if(speed != old_speed[FLOW_TANK2_OUT]){
-        screen_const_puts("CELS(24,2,2,'");
-        screen_cmd_puts(int_to_float_str(speed, 1071));
-        screen_const_puts("',15,0,1);\n");
-        old_speed[FLOW_TANK2_OUT] = speed;
-    }
-    
-}
 
 static char rx_buf[16];
 static unsigned char rx_pos = 0;
@@ -566,7 +354,7 @@ static struct warm_param_struct{
 
 #define WARM_RUN_SECONDS() (sys_run_seconds() - warm_param.start_time)
 
-void temperature_process(char index, char destination)
+void temperature_process(UINT8 index, char destination)
 {
     static UINT32 old_val;
     char scene_ret;
@@ -592,11 +380,11 @@ void temperature_process(char index, char destination)
         if(WARM_RUN_SECONDS() > old_val){
             old_val = WARM_RUN_SECONDS();
             sprintf(working_info,"%s水箱保温,运行%lu秒", (!index)?"主":"副", old_val);
-            sprintf(working_info1,"达标计数:%d/50,%d/%d", warm_param.ok_cnt, temperature[TEMPERATURE_COLD_ID]/16, destination);
+            sprintf(working_info1,"达标计数:%d/50,%d/%d", warm_param.ok_cnt, get_temperature_int(TEMPERATURE_COLD_ID), destination);
             ui_working_info_pending();
         }
         if(WARM_RUN_SECONDS() > 30){
-            if(temperature[TEMPERATURE_COLD_ID]/16 >= destination){
+            if(get_temperature_int(TEMPERATURE_COLD_ID) >= destination){
                 warm_param.ok_cnt++;
             }else{
                 warm_param.ok_cnt = 0;

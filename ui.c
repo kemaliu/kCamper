@@ -4,21 +4,6 @@
 #define NO_OFFSET
 
 
-void pump_mode_show(char mode)
-{
-#ifdef NO_OFFSET
-    screen_const_puts("LABL(16,175,99,239,'泵:");
-    if(mode == 0)
-        screen_const_puts("关闭");
-    else if(mode == 2)
-        screen_const_puts("全速");
-    else
-        screen_const_puts("低速");
-    screen_const_puts("',15,0);\n");
-#else
-    
-#endif
-}
 
 
 void draw_main_page()
@@ -32,9 +17,10 @@ void draw_main_page()
     screen_const_puts("CELS(16,0,3,'加热器',15,0,1);");
     screen_const_puts("CELS(16,1,0,'温度',2,0,1);");
 
-    screen_const_puts("CELS(16,2,1,'进水',15,0,1);");
-    screen_const_puts("CELS(16,2,2,'主箱出',15,0,1);");
-    screen_const_puts("CELS(16,2,3,'副水出',15,0,1);");
+
+    screen_const_puts("CELS(16,2,1,'主箱进',15,0,1);");
+    screen_const_puts("CELS(16,2,2,'副水进',15,0,1);");
+    screen_const_puts("CELS(16,2,3,'用水',15,0,1);");
     screen_const_puts("CELS(16,3,0,'流速',2,0,1);");
     screen_const_puts("SBC(0);");
     screen_const_puts(AREA_1_START);

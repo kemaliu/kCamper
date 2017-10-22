@@ -1,6 +1,6 @@
 #ifndef __DS18B20_SIMPLIE_FIX_H__
 #define __DS18B20_SIMPLIE_FIX_H__
-
+#include "ktype.h"
 enum{
     TEMPERATURE_COLD_ID = 0,
     TEMPERATURE_HOT_ID,
