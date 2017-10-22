@@ -4,15 +4,15 @@
 typedef enum{
     FLOW_TANK1_OUT = 0,
     FLOW_TANK2_OUT = 1,
+    FLOW_INPUT = 2,
     FLOW_NUM
 }FLOW_CTRL_T;
 
-UINT32 flow_num(FLOW_CTRL_T index);
 void flow_init();
 
-void flow_reset(FLOW_CTRL_T index);
+void flow_reset(UINT8 index);
 
-UINT32 flow_cnt(FLOW_CTRL_T index);
+UINT32 flow_cnt(UINT8 index);
 
-UINT32 flow_cnt_speed(FLOW_CTRL_T index);
+UINT32 flow_cnt_speed(UINT8 index);
 #endif  /* #ifndef __FLOW_CTRL_H__ */

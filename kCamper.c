@@ -40,6 +40,7 @@
  *   temp_heater:PC2
  *   flow_tank1_out:PC3(PCINT11)
  *   flow_tank2_out:PC4(PCINT12)
+ *   flow_input:PC5(PCINT13)
  *   
  *   pump low: PD2
  *   pump low output: PD3

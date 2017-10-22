@@ -20,10 +20,10 @@ struct flow_info{
     UINT32 speed;
 }__info[FLOW_NUM];
 
-static UINT8 last_pinc = 3;
+static UINT8 last_pinc = 7;
 SIGNAL(PCINT1_vect)
 {
-    UINT8 val = (PINC >> 3) & 3;
+    UINT8 val = (PINC >> 3) & 7;
     UINT8 change;
     change = val ^ last_pinc;
     last_pinc = val;
@@ -33,25 +33,29 @@ SIGNAL(PCINT1_vect)
     if((change & 2) && ((val & 2) == 0)){ /* PCINT11 low interrupt */
         __info[1].cnt++;
     }
+    if((change & 4) && ((val & 4) == 0)){ /* PCINT11 low interrupt */
+        __info[2].cnt++;
+    }
 }
 
 void flow_init()
 {
-        /* set PC3(PCINT11)/PC4(PCINT12) to input & pull-up */
+        /* set PC3(PCINT11)/PC4(PCINT12)/PC5(PCINT13) to input & pull-up */
     gpio_input(GPIO_GROUP_C, 3, 1);
     gpio_input(GPIO_GROUP_C, 4, 1);
+    gpio_input(GPIO_GROUP_C, 5, 1);
     
-    PCMSK1 |= (1 << (11 - 8)) | (1 << (12 - 8));
+    PCMSK1 |= (1 << (11 - 8)) | (1 << (12 - 8)) | (1 << (13 - 8));
     
     PCIFR |= 2;			/* clear PCINT1 flag*/
     PCICR |= 2;			/* enable PCINT1 */
 }
 
 
-void flow_reset(FLOW_CTRL_T index)
+void flow_reset(UINT8 index)
 {
-    if(index > FLOW_TANK2_OUT || index < FLOW_TANK1_OUT)
-        return;
+    if(index >= FLOW_NUM)
+        return 0;
     cli();			/* 关中断 */
     __info[index].cnt = __info[index].last_cnt = 0;
     __info[index].start_time = __info[index].last_time = timebase_get();
@@ -60,15 +64,17 @@ void flow_reset(FLOW_CTRL_T index)
 
 
 
-UINT32 flow_cnt(FLOW_CTRL_T index)
+UINT32 flow_cnt(UINT8 index)
 {
+    if(index >= FLOW_NUM)
+        return 0;
     return __info[index].cnt;
 }
 
 /* return speed (cnt inc number)/1min  */
-UINT32 flow_cnt_speed(FLOW_CTRL_T index)
+UINT32 flow_cnt_speed(UINT8 index)
 {
-    if(index > FLOW_TANK2_OUT || index < FLOW_TANK1_OUT)
+    if(index >= FLOW_NUM)
         return 0;
     if(time_diff_ms(__info[index].last_time) < 100){
         printf(".");
