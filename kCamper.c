@@ -286,8 +286,8 @@ void scene_reset()
 
 /* return 0:processing 1:end */
 #define STEP1_START_TIME 0
-#define STEP2_START_TIME 5
-#define STEP3_START_TIME 5
+#define STEP2_START_TIME (STEP1_START_TIME + VALVE_OPR_TIME)
+#define STEP3_START_TIME (STEP2_START_TIME + 0)
 #define STEP_RUNNING 3
 int scene_process(UINT8 scene, char dest)
 {
@@ -343,19 +343,26 @@ static struct warm_param_struct{
 };
 
 #define WARM_RUN_SECONDS() (sys_run_seconds() - warm_param.start_time)
-
-void temperature_process(UINT8 index, char destination)
+enum{
+    WARM_IDLE = 0,
+    WARM_RUNNING,
+    WARM_DONE,
+    
+};
+INT8 warm_temperature_process(UINT8 index, char destination, char * type)
 {
     static UINT32 sec;
     char scene_ret;
     if(index >= 2){
         pump_mode_set(PUMP_OFF);
         if(sys_run_seconds() - sec > 5){
-            sprintf(working_info,"主水箱保温%lu秒后运行", warm_param.tank[0].interval - (sys_run_seconds() - warm_param.tank[0].warm_end_time));
-            sprintf(working_info1,"副水箱保温%lu秒后运行", warm_param.tank[1].interval - (sys_run_seconds() - warm_param.tank[1].warm_end_time));
+            sprintf(working_info,"主水箱%s%lu秒后运行", type, 
+                    warm_param.tank[0].interval - (sys_run_seconds() - warm_param.tank[0].warm_end_time));
+            sprintf(working_info1,"副水箱%s%lu秒后运行", type, 
+                    warm_param.tank[1].interval - (sys_run_seconds() - warm_param.tank[1].warm_end_time));
             ui_working_info_pending();
         } 
-        return;
+        return WARM_IDLE;
     }
     if(!warm_param.runing_flag){
         scene_reset();
@@ -369,7 +376,7 @@ void temperature_process(UINT8 index, char destination)
     if(scene_ret >= 3){
         if(WARM_RUN_SECONDS() > sec){
             sec = WARM_RUN_SECONDS();
-            sprintf(working_info,"%s水箱保温,运行%lu秒", (!index)?"主":"副", sec);
+            sprintf(working_info,"%s水箱%s,运行%lu秒", (!index)?"主":"副", type, sec);
             sprintf(working_info1,"达标计数:%d/50,%d/%d", warm_param.ok_cnt, get_temperature_int(TEMPERATURE_COLD_ID), destination);
             ui_working_info_pending();
         }
@@ -385,9 +392,11 @@ void temperature_process(UINT8 index, char destination)
                     /* update tank1 warm end time */
                 warm_param.tank[index].warm_end_time = sys_run_seconds();
                 warm_param.runing_flag = 0;
+                return WARM_DONE;
             }
         }
     }
+    return WARM_RUNNING;
 }
 
 
@@ -395,13 +404,13 @@ void warm_process(char destination)
 {
     if(sys_run_seconds() - warm_param.tank[0].warm_end_time > warm_param.tank[0].interval){
             /* do tank1 warm */
-        temperature_process(0, destination);
+        warm_temperature_process(0, destination, "保温");
     }else if(sys_run_seconds() - warm_param.tank[1].warm_end_time > warm_param.tank[1].interval){
             /* do tank2 warm */
-        temperature_process(1, destination);
+        warm_temperature_process(1, destination, "保温");
     }else{
             /* warm idle */
-        temperature_process(2, 0);
+        warm_temperature_process(2, 0, "保温");
     }
 }
 
@@ -422,7 +431,11 @@ char mode_process(char mode, char destination)
             break;
         case 3:
                 /* heat tank1 */
-            scene_ret = scene_process(SCENE_WATER_TANK1_LOOP, destination);
+                /* check cold water temperature until reaching destination */
+            if(WARM_DONE == warm_temperature_process(0, destination, "加热")){ /* done */
+                mode_switch(MODE_NORMAL);
+                ui_mode_setting_show(MODE_NORMAL, 0);
+            }
             break;
         case 4:
                 /* tank2->tank1 */

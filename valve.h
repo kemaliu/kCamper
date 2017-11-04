@@ -15,5 +15,8 @@ void valve_check();
 void valve_power_down();
 void valve_init();
 
+/* time(seconds) for valve switching */
+#define VALVE_OPR_TIME 10
+
 
 #endif  /* #ifndef __VALVE_H__ */

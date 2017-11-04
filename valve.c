@@ -63,7 +63,7 @@ void valve_power_down()
 
 void valve_check()
 {
-    if(sys_run_seconds() - valve_mod_time > 5){
+    if(sys_run_seconds() - valve_mod_time > VALVE_OPR_TIME){
             /* poweroff all the valve */
         valve_power_down();
     }
