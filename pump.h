@@ -10,4 +10,5 @@ enum{
 void pump_init();
 void pump_mode_set(char mode);
 void pump_mode_show(char mode);
+char pump_mode_get();
 #endif  /* #ifndef __PUMP_H__ */

@@ -1,6 +1,9 @@
 #include "pump.h"
 #include "lib/gpio.h"
 #include "lib/kconfig.h"
+
+static char __current_pump_mode = 0;
+
 void pump_init()
 {
         /* pump control bit PC5 */
@@ -34,14 +37,17 @@ void pump_mode_set(char mode)
         case PUMP_OFF:
             gpio_output(GPIO_GROUP_D, 2, 0);
             gpio_output(GPIO_GROUP_D, 3, 1);
+            __current_pump_mode = PUMP_OFF;
             break;
         case PUMP_LOW_SPEED:
             gpio_output(GPIO_GROUP_D, 2, 0);
             gpio_output(GPIO_GROUP_D, 3, 0);
+            __current_pump_mode = PUMP_LOW_SPEED;
             break;
         case PUMP_FULL_SPEED:
             gpio_output(GPIO_GROUP_D, 2, 1);
             gpio_output(GPIO_GROUP_D, 3, 1);
+            __current_pump_mode = PUMP_FULL_SPEED;
             break;
     }
     if(mode == PUMP_FULL_SPEED){
@@ -54,3 +60,7 @@ void pump_mode_set(char mode)
 
 
 
+char pump_mode_get()
+{
+    return __current_pump_mode;
+}
