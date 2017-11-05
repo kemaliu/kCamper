@@ -20,22 +20,34 @@ void temp_update()
 {
     static UINT32 last_sample_time = 0;
     static short old_temperature[TEMPERATURE_SENSOR_MAX_NUM] = {-1009, -1009, -1009};
-    static int sample_ret[TEMPERATURE_SENSOR_MAX_NUM];
+    static char sample_err_num[TEMPERATURE_SENSOR_MAX_NUM];
+    int ret;
     UINT8 i;
     if(!last_sample_time){
             /* do sample */
         last_sample_time = timebase_get();
         for(i=0; i<TEMPERATURE_SENSOR_MAX_NUM; i++){
-            sample_ret[i] = ds_get_temperature_sample(i);
+            ret = ds_get_temperature_sample(i);
+            if(!ret)
+                sample_err_num[i] = 0;
+            else{
+                sample_err_num[i]++;
+                if(sample_err_num[i] > 64)
+                    sample_err_num[i] = 64;
+            }
         }
     }else{
         if(time_diff_ms(last_sample_time) <= 2000) /* sample need wait 2 seconds */
             return;
         for(i=0; i<TEMPERATURE_SENSOR_MAX_NUM; i++){
-            if(!sample_ret[i]) /* start sample return OK */
+            if(!sample_err_num[i]) /* start sample return OK */
                 temperature[i] = ds_get_temperature_read(i);
-            else 
+            else if(sample_err_num[i] < 5){
+                    /* do nothing ,wait next sample&read */
+            }else{
+                    /* temperature NA now  */
                 temperature[i] = -1000;
+            }
             if(old_temperature[i] != temperature[i]){
                 ui_temp_update(i);
                 old_temperature[i] = temperature[i];
