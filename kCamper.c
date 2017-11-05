@@ -321,7 +321,7 @@ int scene_process(UINT8 scene, char dest)
 
 
 #define TANK1_WARM_INTERVAL 1800 /* 30min */
-#define TANK2_WARM_INTERVAL 600 /* 10min */
+#define TANK2_WARM_INTERVAL 1800 /* 30min */
 struct tank_warm_param_struct{
     UINT32 warm_end_time;
     UINT32 interval;
@@ -349,6 +349,11 @@ enum{
     WARM_DONE,
     
 };
+
+
+/* 
+   index: 0:tank1 loop 1:tank2 loop 2:idle
+ */
 INT8 warm_temperature_process(UINT8 index, char destination, char * type)
 {
     static UINT32 sec;
@@ -374,6 +379,22 @@ INT8 warm_temperature_process(UINT8 index, char destination, char * type)
         /* do tank1 loop */
     scene_ret = scene_process(SCENE_WATER_TANK1_LOOP+index, destination);
     if(scene_ret >= 3){
+        if(get_temperature_int(TEMPERATURE_HEATER_ID) >= destination + 20){
+                /* start working, start pump */
+            if(pump_mode_get() != PUMP_LOW_SPEED)
+                pump_mode_set(PUMP_LOW_SPEED);
+        }
+        if(get_temperature_int(TEMPERATURE_HEATER_ID) < destination + 10){
+                /* heat temperature too low, stop pump */
+            if(pump_mode_get() != PUMP_OFF){
+                pump_mode_set(PUMP_OFF);
+                strcpy(working_info,"加热器温度过低，暂停");
+                strcpy(working_info1,"");
+                ui_working_info_pending();
+            }
+        }
+        if(pump_mode_get() != PUMP_LOW_SPEED)
+            return WARM_RUNNING;            
         if(WARM_RUN_SECONDS() > sec){
             sec = WARM_RUN_SECONDS();
             sprintf(working_info,"%s水箱%s,运行%lu秒", (!index)?"主":"副", type, sec);
