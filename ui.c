@@ -10,7 +10,7 @@ void draw_main_page()
 {
     screen_const_puts("\nSPG(1);\n"); /* display main page */    
     _delay_ms(300);
-    screen_const_puts("DR3;");
+    screen_const_puts("DR1;");
     screen_const_puts("TPN(2);");
     screen_const_puts("CLS(0);");
     screen_const_puts("TABL(0,0,59,22,4,4,19);");
