@@ -25,7 +25,6 @@ void temp_update()
     UINT8 i;
     if(!last_sample_time){
             /* do sample */
-        last_sample_time = timebase_get();
         for(i=0; i<TEMPERATURE_SENSOR_MAX_NUM; i++){
             ret = ds_get_temperature_sample(i);
             if(!ret)
@@ -36,8 +35,9 @@ void temp_update()
                     sample_err_num[i] = 64;
             }
         }
+        last_sample_time = timebase_get();
     }else{
-        if(time_diff_ms(last_sample_time) <= 2000) /* sample need wait 2 seconds */
+        if(time_diff_ms(last_sample_time) <= 1500) /* sample need wait 2 seconds */
             return;
         for(i=0; i<TEMPERATURE_SENSOR_MAX_NUM; i++){
             if(!sample_err_num[i]) /* start sample return OK */

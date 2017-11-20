@@ -30,10 +30,10 @@ SIGNAL(PCINT1_vect)
     if((change & 1) && ((val & 1) == 0)){ /* PCINT11 low interrupt */
         __info[0].cnt++;
     }
-    if((change & 2) && ((val & 2) == 0)){ /* PCINT11 low interrupt */
+    if((change & 2) && ((val & 2) == 0)){ /* PCINT12 low interrupt */
         __info[1].cnt++;
     }
-    if((change & 4) && ((val & 4) == 0)){ /* PCINT11 low interrupt */
+    if((change & 4) && ((val & 4) == 0)){ /* PCINT13 low interrupt */
         __info[2].cnt++;
     }
 }

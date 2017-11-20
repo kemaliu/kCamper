@@ -357,7 +357,9 @@ enum{
 INT8 warm_temperature_process(UINT8 index, char destination, char * type)
 {
     static UINT32 sec;
+    static char empty_loop = 0;     /* warming water, heater is cold, only run pump for 60 seconds */
     char scene_ret;
+    
     if(index >= 2){
         pump_mode_set(PUMP_OFF);
         if(sys_run_seconds() - sec > 5){
@@ -383,15 +385,27 @@ INT8 warm_temperature_process(UINT8 index, char destination, char * type)
                 /* start working, start pump */
             if(pump_mode_get() != PUMP_LOW_SPEED)
                 pump_mode_set(PUMP_LOW_SPEED);
-        }
-        if(get_temperature_int(TEMPERATURE_HEATER_ID) < destination + 10){
+            empty_loop = 0;
+        }else  if(get_temperature_int(TEMPERATURE_HEATER_ID) < destination + 10){
+            if(destination >= WATER_HEAT_TEMPERATURE_MIN){
+                    /* heat warter */
                 /* heat temperature too low, stop pump */
-            if(pump_mode_get() != PUMP_OFF){
-                pump_mode_set(PUMP_OFF);
-                strcpy(working_info,"加热器温度过低，暂停");
-                strcpy(working_info1,"");
-                ui_working_info_pending();
+                if(pump_mode_get() != PUMP_OFF){
+                    pump_mode_set(PUMP_OFF);
+                    strcpy(working_info,"加热器温度过低，暂停");
+                    strcpy(working_info1,"");
+                    ui_working_info_pending();
+                }
+                empty_loop = 0;
+            }else{
+                    /* warm water, at leat run 60 seconds to avoid pipe frozen */
+                if(pump_mode_get() != PUMP_LOW_SPEED){
+                    pump_mode_set(PUMP_LOW_SPEED);
+                }
+                empty_loop = 1;
             }
+        }else{
+            empty_loop = 0;
         }
         if(pump_mode_get() != PUMP_LOW_SPEED)
             return WARM_RUNNING;            
@@ -407,7 +421,8 @@ INT8 warm_temperature_process(UINT8 index, char destination, char * type)
             }else{
                 warm_param.ok_cnt = 0;
             }
-            if(warm_param.ok_cnt >= 50){
+            if(warm_param.ok_cnt >= 50 || 
+               ((empty_loop) && WARM_RUN_SECONDS() > 60)){
                     /* warm done, power off pump */
                 pump_mode_set(PUMP_OFF);
                     /* update tank1 warm end time */
@@ -415,6 +430,7 @@ INT8 warm_temperature_process(UINT8 index, char destination, char * type)
                 warm_param.runing_flag = 0;
                 return WARM_DONE;
             }
+            
         }
     }
     return WARM_RUNNING;
@@ -507,8 +523,8 @@ char mode_process(char mode, char destination)
 
 
 
-
-static unsigned char current_mode = 0;
+#define MODE_BOOT 0x80
+static unsigned char current_mode = MODE_BOOT;
 static char param_lock = 1; /* 0: param changing allowed
                                1:param changing forbidened 
                                default current_mode forbiden param changing*/
@@ -611,7 +627,9 @@ static inline void main_opr()
             /* clr button value */
         button = -1;
     }
-
+    if(current_mode == MODE_BOOT){
+        mode_switch(MODE_NORMAL);
+    }
     /* button blink */
     button_blink(current_mode, 1); /* blinking current button */
     
@@ -637,6 +655,7 @@ int main()
 {
         /* init uart */
     init_uart(19200);
+    pump_init();
         /* init timer */
     timer_init();
     draw_main_page();    
@@ -649,7 +668,6 @@ int main()
         /* wait UI init done */
     _delay_ms(2000);
     valve_init();
-    pump_init();
 #if 0
     screen_const_puts("TERM;\n"); /* display main page */
 #endif
