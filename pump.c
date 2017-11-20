@@ -7,7 +7,7 @@ static char __current_pump_mode = 0;
 void pump_init()
 {
         /* pump control bit PC5 */
-    pump_mode_set(PUMP_FULL_SPEED);
+    pump_mode_set(PUMP_OFF);
 }
 
 
