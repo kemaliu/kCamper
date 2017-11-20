@@ -64,7 +64,7 @@ void ds_write_bit(char index, UINT8 val)
 {
     ds_pin_output_low(index);		/* low for 2us */
     _delay_us(2);
-    cli();			/* 关中断 */
+
     if(val > 0){
         ds_pin_output_high(index);		/* high for 2us */
     }else{
@@ -73,7 +73,7 @@ void ds_write_bit(char index, UINT8 val)
     _delay_us(60);		/* hold for 60 us */
     /* pull to high */
     ds_pin_output_high(index);
-    sei();			/* 开中断 */
+
     _delay_us(2);
 }
 
@@ -93,16 +93,17 @@ UINT8 ds_read_bit(char index)
 {
     UINT8 ret;
     ds_pin_output_high(index);
-    cli();			/* 关中断 */
+
     ds_pin_output_low(index);		/* low for 2us */
     _delay_us(2);
     ds_pin_input(index);        /* set pull up input mode */
     _delay_us(5);              /* wait 10us */
         /* do sample */
     ret = ds_pin_input(index);
-    _delay_us(60);
+    _delay_us(5);
     ds_pin_output_high(index);
-    sei();			/* 开中断 */
+    _delay_us(55);
+
     _delay_us(1);
     
     return ret;
