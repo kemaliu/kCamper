@@ -74,13 +74,24 @@ char get_temperature_int(UINT8 index)
 void flow_speed_update()
 {
     UINT32 speed;
-    UINT8 i;
+    UINT8 i, col;
     static UINT32 old_speed[FLOW_NUM] = {0xffffffff, 0xffffffff, 0xffffffff};
     
     for(i=0; i<FLOW_NUM; i++){
         speed = flow_cnt_speed(i);
         if(speed != old_speed[i]){
-            screen_cmd_printf("CELS(16,3,%d,'", i+1);
+            switch(i){
+                case FLOW_INPUT:
+                    col = 3;
+                    break;
+                case FLOW_TANK1_OUT:
+                    col = 1;
+                    break;
+                case FLOW_TANK2_OUT:
+                    col = 2;
+                    break;
+            }
+            screen_cmd_printf("CELS(16,3,%d,'", col);
             screen_cmd_puts(int_to_float_str(speed, 1071));
             screen_const_puts("',15,0,1);\n");
             old_speed[i] = speed;

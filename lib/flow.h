@@ -2,9 +2,10 @@
 #define __FLOW_CTRL_H__
 
 typedef enum{
-    FLOW_TANK1_OUT = 0,
-    FLOW_TANK2_OUT = 1,
-    FLOW_INPUT = 2,
+    FLOW_INPUT = 0,
+    FLOW_TANK1_OUT = 1,
+    FLOW_TANK2_OUT = 2,
+
     FLOW_NUM
 }FLOW_CTRL_T;
 
