@@ -95,7 +95,7 @@ enum{
 #define WATER_WARM_TEMPERATURE_MIN 2
 
 
-#define WATER_HEAT_TEMPERATURE_MAX 45
+#define WATER_HEAT_TEMPERATURE_MAX 40
 #define WATER_HEAT_TEMPERATURE_MIN 25
 
 
@@ -359,7 +359,10 @@ INT8 warm_temperature_process(UINT8 index, char destination, char * type)
     static UINT32 sec;
     static char empty_loop = 0;     /* warming water, heater is cold, only run pump for 60 seconds */
     char scene_ret;
-    
+    char isheat = 0;
+    if(destination >= WATER_HEAT_TEMPERATURE_MIN){
+        isheat = 1;             /* heating operation */
+    }
     if(index >= 2){
         pump_mode_set(PUMP_OFF);
         if(sys_run_seconds() - sec > 5){
@@ -381,15 +384,16 @@ INT8 warm_temperature_process(UINT8 index, char destination, char * type)
         /* do tank1 loop */
     scene_ret = scene_process(SCENE_WATER_TANK1_LOOP+index, destination);
     if(scene_ret >= 3){
-        if(get_temperature_int(TEMPERATURE_HEATER_ID) >= destination + 20){
+            /*温度高过目标温度10度就运行*/
+        if(get_temperature_int(TEMPERATURE_HEATER_ID) >= destination + 10){
                 /* start working, start pump */
             if(pump_mode_get() != PUMP_LOW_SPEED)
                 pump_mode_set(PUMP_LOW_SPEED);
             empty_loop = 0;
-        }else  if(get_temperature_int(TEMPERATURE_HEATER_ID) < destination + 10){
-            if(destination >= WATER_HEAT_TEMPERATURE_MIN){
+        }else  if(get_temperature_int(TEMPERATURE_HEATER_ID) < destination + 3){
+            if((isheat)){
                     /* heat warter */
-                /* heat temperature too low, stop pump */
+                    /* heat temperature too low, stop pump */
                 if(pump_mode_get() != PUMP_OFF){
                     pump_mode_set(PUMP_OFF);
                     strcpy(working_info,"加热器温度过低，暂停");
@@ -668,6 +672,7 @@ int main()
         /* wait UI init done */
     _delay_ms(2000);
     valve_init();
+    pump_mode_set(PUMP_OFF);
 #if 0
     screen_const_puts("TERM;\n"); /* display main page */
 #endif
