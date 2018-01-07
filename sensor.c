@@ -41,10 +41,19 @@ void temp_update()
             return;
         for(i=0; i<TEMPERATURE_SENSOR_MAX_NUM; i++){
             if(!sample_err_num[i]){ /* start sample return OK */
+#if 0
                 temperature[i] = ds_get_temperature_read(i);
-#if 1
                 if(old_temperature[i] > -800){
                     temperature[i] = (old_temperature[i] * 4 + temperature[i])/5; /* avg temperature */
+                }
+#else
+                if(temperature[i] < 75*16 && temperature[i] > -20*16){
+                }else{
+                    if(temperature[i] > old_temperature[i] + 5*16){
+                        temperature[i] = old_temperature[i] + 16/2;
+                    }else if(temperature[i] < old_temperature[i] - 5*16){
+                        temperature[i] = old_temperature[i] - 16/2;
+                    }
                 }
 #endif
             }else if(sample_err_num[i] < 5){
