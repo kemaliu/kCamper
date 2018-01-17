@@ -83,7 +83,8 @@ enum{
     MODE_WARM = 2,
     MODE_TANK1_HEAT,
     MODE_TANK2_TO_TANK1,
-    MODE_TANK1_TO_TANK2
+    MODE_TANK1_TO_TANK2,
+    MODE_TANK2_HEAT,
 };
 
 
@@ -94,9 +95,13 @@ enum{
 #define WATER_WARM_TEMPERATURE_MAX 10
 #define WATER_WARM_TEMPERATURE_MIN 2
 
+/* attention heat min temperature must >  WATER_WARM_TEMPERATURE_MAX*/
+#define WATER1_HEAT_TEMPERATURE_MAX 40
+#define WATER1_HEAT_TEMPERATURE_MIN 25
 
-#define WATER_HEAT_TEMPERATURE_MAX 40
-#define WATER_HEAT_TEMPERATURE_MIN 25
+
+#define WATER2_HEAT_TEMPERATURE_MIN (WATER_WARM_TEMPERATURE_MAX+1)
+#define WATER2_HEAT_TEMPERATURE_MAX 25
 
 
 #define WATER_LITE_UNIT 10
@@ -110,7 +115,8 @@ enum{
 
 
 
-
+#define MODE_BOOT 0x80
+static unsigned char current_mode = MODE_BOOT;
 
 char * int_to_float_str(long val, int xv)
 {
@@ -212,25 +218,29 @@ void ui_mode_setting_show(char button, char destination)
     char status[16];
     char *mode;
     switch(button){
-        case 0:
+        case MODE_NORMAL:
             mode = "正常用水";
             status[0] = '\0';
             break;
-        case 2:             /* keep warm */
+        case MODE_WARM:             /* keep warm */
             mode = "自动保温";
             sprintf(status, "保温温度:%d", destination);
             break;
-        case 3:             /* heat tank1 */
+        case MODE_TANK1_HEAT:             /* heat tank1 */
             mode = "主箱加温";
             sprintf(status, "加温温度:%d", destination);
             break;
-        case 4:             /* tank2->tank1 */
+        case MODE_TANK2_TO_TANK1:             /* tank2->tank1 */
             mode = "主箱加水";
             sprintf(status, "加水量:%dL", destination);
             break;
-        case 5:             /* tank1->tank2 */
+        case MODE_TANK1_TO_TANK2:             /* tank1->tank2 */
             mode = "副箱加水";
             sprintf(status, "加水量:%dL", destination);
+            break;
+        case MODE_TANK2_HEAT:             /* heat tank2 */
+            mode = "副箱加温";
+            sprintf(status, "加温温度:%d", destination);
             break;
         default:
             return;
@@ -239,7 +249,7 @@ void ui_mode_setting_show(char button, char destination)
     
 }
 
-void button_blink(int button, int blink)
+void button_blink(int mode, int blink)
 {
     char * fmt = AREA_2_START"LABL(24,%d,%d,%d,'%s',%d,1);SXY(0,0);\n";
     static UINT32 last_time = 0;
@@ -255,17 +265,18 @@ void button_blink(int button, int blink)
     }
     return;
   do_update:
-    switch(button){
-        case 2:             /* keep warm */
+    switch(mode){
+        case MODE_WARM:             /* keep warm */
             screen_cmd_printf(fmt,2,17,118,BUTTON2_CONTENT,color);
             break;
-        case 3:             /* heat tank1 */
+        case MODE_TANK1_HEAT:             /* heat tank1 */
+        case MODE_TANK2_HEAT:             /* heat tank1 */
             screen_cmd_printf(fmt,122,17,238,BUTTON3_CONTENT,color);
             break;
-        case 4:             /* tank2->tank1 */
+        case MODE_TANK2_TO_TANK1:             /* tank2->tank1 */
             screen_cmd_printf(fmt,2,67,118,BUTTON4_CONTENT,color);
             break;
-        case 5:             /* tank1->tank2 */
+        case MODE_TANK1_TO_TANK2:             /* tank1->tank2 */
             screen_cmd_printf(fmt,122,67,238,BUTTON5_CONTENT,color);
             break;
     }
@@ -360,7 +371,7 @@ INT8 warm_temperature_process(UINT8 index, char destination, char * type)
     static char empty_loop = 0;     /* warming water, heater is cold, only run pump for 60 seconds */
     char scene_ret;
     char isheat = 0;
-    if(destination >= WATER_HEAT_TEMPERATURE_MIN){
+    if(current_mode == MODE_TANK1_HEAT || current_mode == MODE_TANK2_HEAT){
         isheat = 1;             /* heating operation */
     }
     if(index >= 2){
@@ -381,7 +392,7 @@ INT8 warm_temperature_process(UINT8 index, char destination, char * type)
         warm_param.ok_cnt = 0;
         sec = 0;
     }
-        /* do tank1 loop */
+        /* do tank loop */
     scene_ret = scene_process(SCENE_WATER_TANK1_LOOP+index, destination);
     if(scene_ret >= 3){
             /*温度高过目标温度10度就运行*/
@@ -392,7 +403,7 @@ INT8 warm_temperature_process(UINT8 index, char destination, char * type)
             empty_loop = 0;
         }else  if(get_temperature_int(TEMPERATURE_HEATER_ID) < destination + 3){
             if((isheat)){
-                    /* heat warter */
+                    /* heat water */
                     /* heat temperature too low, stop pump */
                 if(pump_mode_get() != PUMP_OFF){
                     pump_mode_set(PUMP_OFF);
@@ -419,7 +430,7 @@ INT8 warm_temperature_process(UINT8 index, char destination, char * type)
             sprintf(working_info1,"达标计数:%d/50,%d/%d", warm_param.ok_cnt, get_temperature_int(TEMPERATURE_COLD_ID), destination);
             ui_working_info_pending();
         }
-        if(WARM_RUN_SECONDS() > 30){
+        if(WARM_RUN_SECONDS() > 120){
             if(get_temperature_int(TEMPERATURE_COLD_ID) >= destination){
                 warm_param.ok_cnt++;
             }else{
@@ -467,18 +478,19 @@ char mode_process(char mode, char destination)
         case 0:
             scene_ret = scene_process(SCENE_NORMAL, destination);
             break;
-        case 2:                 /* keep warm */
+        case MODE_WARM:                 /* keep warm */
             warm_process(destination);
             break;
-        case 3:
-                /* heat tank1 */
+        case MODE_TANK1_HEAT:
+        case MODE_TANK2_HEAT:
+                /* heat tank1/tank2 */
                 /* check cold water temperature until reaching destination */
-            if(WARM_DONE == warm_temperature_process(0, destination, "加热")){ /* done */
+            if(WARM_DONE == warm_temperature_process(MODE_TANK1_HEAT==mode?0:1, destination, "加热")){ /* done */
                 mode_switch(MODE_NORMAL);
                 ui_mode_setting_show(MODE_NORMAL, 0);
             }
             break;
-        case 4:
+        case MODE_TANK2_TO_TANK1:
                 /* tank2->tank1 */
             scene_ret = scene_process(SCENE_WATER_TANK2_TO_TANK1, destination);
             
@@ -499,7 +511,7 @@ char mode_process(char mode, char destination)
             }
             
             break;
-        case 5:
+        case MODE_TANK1_TO_TANK2:
                 /* tank1->tank2 */
             scene_ret = scene_process(SCENE_WATER_TANK1_TO_TANK2, destination);
             if(scene_ret >= 3){
@@ -527,8 +539,7 @@ char mode_process(char mode, char destination)
 
 
 
-#define MODE_BOOT 0x80
-static unsigned char current_mode = MODE_BOOT;
+
 static char param_lock = 1; /* 0: param changing allowed
                                1:param changing forbidened 
                                default current_mode forbiden param changing*/
@@ -543,6 +554,7 @@ void mode_switch(char new_mode)
     current_mode = new_mode;
     scene_reset();
     param_mod_time = sys_run_seconds();
+    warm_param.runing_flag = 0;
 }
 
 static inline void main_opr()
@@ -572,10 +584,14 @@ static inline void main_opr()
                             (WATER_WARM_TEMPERATURE_MAX-WATER_WARM_TEMPERATURE_MIN+WATER_TEMPERATURE_UNIT);
                         break;
                     case MODE_TANK1_HEAT:             /* heat tank1 */
-                        destination = WATER_HEAT_TEMPERATURE_MIN + 
-                            (destination - WATER_HEAT_TEMPERATURE_MIN + 1)%
-                            (WATER_HEAT_TEMPERATURE_MAX-WATER_HEAT_TEMPERATURE_MIN+WATER_TEMPERATURE_UNIT);
+                        destination = WATER1_HEAT_TEMPERATURE_MIN + 
+                            (destination - WATER1_HEAT_TEMPERATURE_MIN + 1)%
+                            (WATER1_HEAT_TEMPERATURE_MAX-WATER1_HEAT_TEMPERATURE_MIN+WATER_TEMPERATURE_UNIT);
                             /* change heat temperature */
+                    case MODE_TANK2_HEAT:             /* heat tank2 */
+                        destination = WATER2_HEAT_TEMPERATURE_MIN + 
+                            (destination - WATER2_HEAT_TEMPERATURE_MIN + 1)%
+                            (WATER2_HEAT_TEMPERATURE_MAX-WATER2_HEAT_TEMPERATURE_MIN+WATER_TEMPERATURE_UNIT);                     
                         break;
                     case MODE_TANK2_TO_TANK1:             /* tank2->tank1 */
                             /* change Lites to add */
@@ -599,7 +615,7 @@ static inline void main_opr()
                 scene_reset();
                 param_mod_time = sys_run_seconds();
                 break;
-            case 3:             /* heat tank1 */
+            case 3:             /* heat tank1/tank2 */
                 destination = 35;
                 status_need_update = 1;
                 scene_reset();
@@ -619,7 +635,17 @@ static inline void main_opr()
                 break;
         }
         if(button>=2 && button <= 5){
-            if(current_mode == button){
+            if(button == 3){
+                if(current_mode != MODE_TANK1_HEAT && current_mode != MODE_TANK2_HEAT){
+                    mode_switch(MODE_TANK1_HEAT);
+                    destination = 35;
+                }else if(current_mode == MODE_TANK1_HEAT){
+                    mode_switch(MODE_TANK2_HEAT);
+                    destination = 15;
+                }else{
+                    mode_switch(MODE_NORMAL);
+                }
+            }else if(current_mode == button){
                     /* disable the function */
                 mode_switch(MODE_NORMAL);
             }else{

@@ -47,8 +47,11 @@ void temp_update()
                     temperature[i] = (old_temperature[i] * 4 + temperature[i])/5; /* avg temperature */
                 }
 #else
-                if(temperature[i] < 75*16 && temperature[i] > -20*16){
+                temperature[i] = ds_get_temperature_read(i);
+                if(old_temperature[i] < -800){
+                }else if(temperature[i] < 75*16 && temperature[i] > -20*16){
                 }else{
+                        /* if temperature < -20 or > 75, do slow increase/decrease */
                     if(temperature[i] > old_temperature[i] + 5*16){
                         temperature[i] = old_temperature[i] + 16/2;
                     }else if(temperature[i] < old_temperature[i] - 5*16){

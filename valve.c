@@ -24,7 +24,7 @@ unsigned char __scene_cfg[SCENE_TOTAL_NUM] = {
     VALVE_INPUT_TANK1 | VALVE_OUTPUT_TANK2, /* tank1->tank2 */
     VALVE_INPUT_TANK1 | VALVE_OUTPUT_TANK1, /* tank1 loop */
     VALVE_INPUT_TANK2 | VALVE_OUTPUT_TANK2, /* tank2 loop */
-    VALVE_INPUT_TANK2 | VALVE_OUTPUT_TANK1, /* tank2 loop */
+    VALVE_INPUT_TANK2 | VALVE_OUTPUT_TANK1, /* tank2->tank1 */
 };
 
 #define VALVE_ON 0
