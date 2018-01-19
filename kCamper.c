@@ -331,8 +331,8 @@ int scene_process(UINT8 scene, char dest)
 }
 
 
-#define TANK1_WARM_INTERVAL 1800 /* 30min */
-#define TANK2_WARM_INTERVAL 1800 /* 30min */
+#define TANK1_WARM_INTERVAL 3600 /* 30min */
+#define TANK2_WARM_INTERVAL 3600 /* 60min */
 struct tank_warm_param_struct{
     UINT32 warm_end_time;
     UINT32 interval;
@@ -367,23 +367,35 @@ enum{
  */
 INT8 warm_temperature_process(UINT8 index, char destination, char * type)
 {
+#define MIN_WARM_RUN_TIME 120
     static UINT32 sec;
-    static char empty_loop = 0;     /* warming water, heater is cold, only run pump for 60 seconds */
+    static char empty_loop = 0;     /* warming water, heater is cold, only run pump for MIN_WARM_RUN_TIME seconds */
     char scene_ret;
     char isheat = 0;
+    static UINT32 idle_start_time;
     if(current_mode == MODE_TANK1_HEAT || current_mode == MODE_TANK2_HEAT){
         isheat = 1;             /* heating operation */
     }
     if(index >= 2){
-        pump_mode_set(PUMP_OFF);
-        if(sys_run_seconds() - sec > 5){
+        if(idle_start_time == 0xffffffff){
+            idle_start_time = sys_run_seconds();
+            pump_mode_set(PUMP_OFF);
+            valve_setup(SCENE_NORMAL);
+        }
+        if((unsigned int)(sys_run_seconds() - idle_start_time) >= 10){
+            pump_mode_set(PUMP_FULL_SPEED);
+        }
+        if(sys_run_seconds() - sec > 1){
             sprintf(working_info,"主水箱%s%lu秒后运行", type, 
                     warm_param.tank[0].interval - (sys_run_seconds() - warm_param.tank[0].warm_end_time));
             sprintf(working_info1,"副水箱%s%lu秒后运行", type, 
                     warm_param.tank[1].interval - (sys_run_seconds() - warm_param.tank[1].warm_end_time));
             ui_working_info_pending();
+            sec = sys_run_seconds();
         } 
         return WARM_IDLE;
+    }else{
+        idle_start_time = 0xffffffff;
     }
     if(!warm_param.runing_flag){
         scene_reset();
@@ -430,7 +442,7 @@ INT8 warm_temperature_process(UINT8 index, char destination, char * type)
             sprintf(working_info1,"达标计数:%d/50,%d/%d", warm_param.ok_cnt, get_temperature_int(TEMPERATURE_COLD_ID), destination);
             ui_working_info_pending();
         }
-        if(WARM_RUN_SECONDS() > 120){
+        if(WARM_RUN_SECONDS() > MIN_WARM_RUN_TIME){
             if(get_temperature_int(TEMPERATURE_COLD_ID) >= destination){
                 warm_param.ok_cnt++;
             }else{
@@ -585,13 +597,14 @@ static inline void main_opr()
                         break;
                     case MODE_TANK1_HEAT:             /* heat tank1 */
                         destination = WATER1_HEAT_TEMPERATURE_MIN + 
-                            (destination - WATER1_HEAT_TEMPERATURE_MIN + 1)%
-                            (WATER1_HEAT_TEMPERATURE_MAX-WATER1_HEAT_TEMPERATURE_MIN+WATER_TEMPERATURE_UNIT);
+                            ((destination - WATER1_HEAT_TEMPERATURE_MIN + 1)%
+                             (WATER1_HEAT_TEMPERATURE_MAX-WATER1_HEAT_TEMPERATURE_MIN+WATER_TEMPERATURE_UNIT));
                             /* change heat temperature */
+                        break;
                     case MODE_TANK2_HEAT:             /* heat tank2 */
                         destination = WATER2_HEAT_TEMPERATURE_MIN + 
-                            (destination - WATER2_HEAT_TEMPERATURE_MIN + 1)%
-                            (WATER2_HEAT_TEMPERATURE_MAX-WATER2_HEAT_TEMPERATURE_MIN+WATER_TEMPERATURE_UNIT);                     
+                            ((destination - WATER2_HEAT_TEMPERATURE_MIN + 1)%
+                             (WATER2_HEAT_TEMPERATURE_MAX-WATER2_HEAT_TEMPERATURE_MIN+WATER_TEMPERATURE_UNIT));                     
                         break;
                     case MODE_TANK2_TO_TANK1:             /* tank2->tank1 */
                             /* change Lites to add */
@@ -610,7 +623,7 @@ static inline void main_opr()
                 status_need_update = 1;
                 break;
             case 2:             /* keep warm */
-                destination = 4;
+                destination = 8;
                 status_need_update = 1;
                 scene_reset();
                 param_mod_time = sys_run_seconds();
